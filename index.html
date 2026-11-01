@@ -465,15 +465,14 @@
         </ul>
     </div>
 
-    <header id="mainHeader">
-        <div class="header-row">
-            <div class="header-left-group">
-                <button class="menu-hamburger-btn" onclick="openDrawer()">☰</button>
-                <div class="brand-logo" onclick="switchTab('home')">
-                    <img src="logo.png" alt="Deep Blue Sea Logo" class="whale-logo-img">
-                    <div class="brand-title">Deep Blue Sea</div>
-                </div>
+<header id="mainHeader">
+    <div class="header-row">
+        <div class="header-left-group">
+            <button class="menu-hamburger-btn" onclick="openDrawer()">☰</button>
+            <div class="brand-logo" onclick="switchTab('home')">
+                <div class="brand-title" style="font-size: 1.15rem; letter-spacing: 1px;">DEEP BLUE SEA</div>
             </div>
+        </div>
             <div class="header-right-group">
                 <select class="lang-select" id="userLangSelect" onchange="setUserLanguage(this.value)">
                     <option value="ko" selected>🇰🇷 한국어</option>
@@ -1899,6 +1898,7 @@
                 `;
             });
             container.innerHTML = html;
+            document.getElementById('archiveChapterListModal').classList.add('z-top');
             openModal('archiveChapterListModal');
         }
 
