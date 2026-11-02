@@ -1707,10 +1707,7 @@
 
         // 📖 이전까지 스토리 보기 모달 오픈 및 데이터 바인딩 함수
 function openPrevChaptersModal() {
-    // 1. 현재 열려있는 릴레이 상세 모달 닫기
-    closeModal('integratedRelayModal');
-
-    // 2. 누적 챕터 내용 바인딩
+    // 1. 누적 챕터 내용 바인딩
     const prevBodyElement = document.getElementById('prevChaptersBody');
     const samplePrevText = `제 1화: 심해의 문이 열리다\n심해 10,000m 바닥에서 정체불명의 신호가 감지되었다...\n\n제 2화: 고대 문자의 해독\n구조물 외벽에 각인된 미지의 문자들이 푸른빛으로 발광하기 시작했다...`;
     
@@ -1718,7 +1715,7 @@ function openPrevChaptersModal() {
         prevBodyElement.innerText = samplePrevText;
     }
 
-    // 3. 최상단 z-index 레이어로 모달 띄우기
+    // 2. 최상단 z-index 레이어로 모달 띄우기
     const modalElem = document.getElementById('relayPrevChaptersModal');
     if (modalElem) {
         modalElem.classList.add('z-top');
@@ -1910,13 +1907,22 @@ function openPrevChaptersModal() {
             openModal('creatorReadModal');
         }
 
-        function readCreatorChapter(title, chNum) {
-            closeModal('creatorReadModal');
-            document.getElementById('singleReaderTitle').innerText = `${title} - 제 ${chNum}화`;
-            document.getElementById('singleReaderBody').innerText = "오리지널 시리즈 본문 내용...";
-            openModal('creatorSingleReaderModal');
-        }
-
+        // 📖 오리지널 시리즈 회차 읽기 (클라우드 DB에 저장된 실제 본문 연동)
+    function readCreatorChapter(title, chNum) {
+        closeModal('creatorReadModal');
+        document.getElementById('singleReaderTitle').innerText = `${title} - 제 ${chNum}화`;
+    
+        // 1. 현재 선택된 작품을 creatorMockList에서 찾기
+        const targetCreator = creatorMockList.find(item => item.title === title);
+    
+        // 2. DB에 저장되어 있던 본문(desc 또는 content)을 가져오고, 없으면 기본 안내 문구 출력
+        const realContent = targetCreator ? (targetCreator.desc || targetCreator.content || "저장된 본문 내용이 없습니다.") : "오리지널 시리즈 본문 내용...";
+    
+        // 3. 화면에 실제 DB 데이터 바인딩
+        document.getElementById('singleReaderBody').innerText = realContent;
+    
+        openModal('creatorSingleReaderModal');
+    }
         function openCreatorReadModalFromReader() {
             closeModal('creatorSingleReaderModal');
             openModal('creatorReadModal');
