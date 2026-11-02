@@ -2128,13 +2128,54 @@
             closeModal('writerModal');
         }
 
-        function createNewRelayCard() {
-            const title = document.getElementById('inputTitle').value || "무제 스토리";
-            relayMockList.unshift({ id: 'card_' + Date.now(), title: title, nation: 'KR', format: '단편', progress: '글쓰기 진행중(1/5)', phase: 'write', time: '05일 00시간 남음', content: document.getElementById('storyContent').value, creatorName: '나', isBlind: false });
+        async function createNewRelayCard() {
+    const title = document.getElementById('inputTitle').value || "무제 스토리";
+    const content = document.getElementById('storyContent').value;
+
+    try {
+        // 1. 백엔드 서버로 POST 요청 보내기 (MongoDB 클라우드 DB 저장)
+        const response = await fetch('http://localhost:5000/api/relay/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: title,
+                content: content,
+                nation: 'KR',
+                format: '단편'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // 2. 서버 저장 성공 시 화면의 임시 리스트에도 추가 및 모달 닫기
+            relayMockList.unshift({ 
+                id: result.data.relayId || ('card_' + Date.now()), 
+                title: title, 
+                nation: 'KR', 
+                format: '단편', 
+                progress: '글쓰기 진행중(1/5)', 
+                phase: 'write', 
+                time: '05일 00시간 남음', 
+                content: content, 
+                creatorName: 'wnalsdud88', 
+                isBlind: false 
+            });
+
             closeModal('createModal');
-            alert(`🎉 '${title}' 스토리 릴레이가 무료로 개설되었습니다!`);
+            alert(`🎉 '${title}' 스토리 릴레이가 클라우드 DB에 안전하게 개설되었습니다!`);
             renderRelayListContent();
+        } else {
+            alert("개설 실패: " + result.message);
         }
+
+    } catch (error) {
+        console.error("❌ 서버 통신 에러:", error);
+        alert("백엔드 서버와 연결할 수 없습니다. 서버가 켜져 있는지 확인해주세요!");
+    }
+}
 
         // 🎨 1. 오리지널 개설 시 작가 스튜디오 자동 연동 & 6. 25% 표절 차단
         function createNewCreatorCard() {
