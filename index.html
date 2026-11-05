@@ -407,6 +407,27 @@
             display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;
         }
         .chapter-list-item:hover { border-color: var(--primary-cyan); background: rgba(56, 189, 248, 0.12); transform: translateX(2px); }
+    .page-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(13, 33, 66, 0.95) !important; 
+    border: 1px solid var(--border-glow) !important; 
+    color: var(--text-bright) !important; 
+    padding: 6px 10px; 
+    border-radius: 8px; 
+    font-size: 0.78rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: all 0.2s;
+    touch-action: manipulation;
+}
+
+.page-btn:active, .page-btn:hover {
+    border-color: var(--primary-cyan) !important; 
+    color: var(--primary-cyan) !important;
+    background: rgba(56, 189, 248, 0.2) !important;
+}
+        
     </style>
 </head>
 
@@ -1788,18 +1809,44 @@
         }
 
         function openArchiveChapterReader(item, chIdx, viewAll = false) {
-            activeArchiveReaderItem = item;
-            activeArchiveChapterIdx = chIdx;
-            isArchiveViewAllMode = viewAll;
+    activeArchiveReaderItem = item;
+    activeArchiveChapterIdx = chIdx;
+    isArchiveViewAllMode = viewAll;
 
-            document.getElementById('archiveReaderTitle').innerText = `[완결 도서] ${item.title}`;
-            const currentChObj = item.chapters[chIdx - 1] || item.chapters[0];
-            document.getElementById('archiveChapterIndicator').innerText = `제 ${currentChObj.ch}화 : ${currentChObj.title}`;
-            document.getElementById('archiveChapterAuthorIndicator').innerText = `작가 : ${currentChObj.author}`;
-            document.getElementById('archiveReaderBody').innerText = currentChObj.content;
-            
-            openModal('archiveChapterReaderModal');
+    const modalTitle = document.getElementById('archiveReaderTitle');
+    const chIndicator = document.getElementById('archiveChapterIndicator');
+    const authorIndicator = document.getElementById('archiveChapterAuthorIndicator');
+    const readerBody = document.getElementById('archiveReaderBody');
+    const toggleBtn = document.getElementById('toggleViewAllBtn');
+
+    if (modalTitle) modalTitle.innerText = `[완결 도서] ${item.title}`;
+    
+    const currentChObj = (item.chapters && item.chapters[chIdx - 1]) ? item.chapters[chIdx - 1] : (item.chapters ? item.chapters[0] : null);
+
+    if (currentChObj) {
+        if (chIndicator) chIndicator.innerText = `제 ${currentChObj.ch}화 : ${currentChObj.title}`;
+        if (authorIndicator) authorIndicator.innerText = `작가 : ${currentChObj.author}`;
+        
+        if (viewAll) {
+            let fullText = '';
+            item.chapters.forEach(c => {
+                fullText += `📌 [제 ${c.ch}화 - ${c.title}] (작가: ${c.author})\n${c.content}\n\n---------------------------------------\n\n`;
+            });
+            if (readerBody) readerBody.innerText = fullText;
+            if (toggleBtn) toggleBtn.innerText = '단일 회차 보기로 전환';
+        } else {
+            if (readerBody) readerBody.innerText = currentChObj.content;
+            if (toggleBtn) toggleBtn.innerText = '한번에 전체회차 다보기';
         }
+    }
+
+    // 아이폰 등 모바일 터치 레이어 꼬임 방지를 위한 z-index 보장
+    const modalElem = document.getElementById('archiveChapterReaderModal');
+    if (modalElem) {
+        modalElem.style.zIndex = '9999';
+        openModal('archiveChapterReaderModal');
+    }
+}
 
         // 📖 이전까지 스토리 보기 모달 오픈 함수
         function openPrevChaptersModal() {
