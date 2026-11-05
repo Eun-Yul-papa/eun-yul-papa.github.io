@@ -1257,6 +1257,10 @@
                 <label class="form-label">Chapter Subtitle (회차 소제목)</label>
                 <input type="text" class="form-control" id="inputCreatorContinueSubtitle" placeholder="회차 소제목을 입력하세요...">
             </div>
+            <div class="form-group" id="creatorFinalCheckboxWrapper" style="display: none; align-items: center; gap: 8px; background: rgba(56,189,248,0.08); padding: 10px; border-radius: 10px; margin-top: 10px;">
+    <input type="checkbox" id="checkFinalChapterCreator" style="width: 18px; height: 18px; cursor: pointer;">
+    <label for="checkFinalChapterCreator" style="font-size: 0.82rem; color: var(--warning-orange); font-weight: 700; cursor: pointer;">🏁 이 회차를 마지막 회차(완결)로 등록하기</label>
+</div>
             <div class="form-group">
                 <label class="form-label">Content (회차 본문 - 글자 수 제한 무제한)</label>
                 <textarea class="form-control" id="inputCreatorContinueContent" style="min-height: 180px;" placeholder="자유롭게 이야기를 이어서 작성하세요..." oninput="handleByteCheckFree(this, 'creator-continue-byte', 'btn-submit-creator-continue')"></textarea>
@@ -1905,12 +1909,27 @@
         }
 
         function openWriterModal(title, encodedContent, relayId) {
-            closeModal('integratedRelayModal');
-            document.getElementById('activeRelayId').value = relayId;
-            document.getElementById('writerTitle').innerText = title + ' - 이어쓰기';
-            document.getElementById('writerBody').innerText = decodeURIComponent(encodedContent);
-            openModal('writerModal');
+    closeModal('integratedRelayModal');
+    document.getElementById('activeRelayId').value = relayId;
+    document.getElementById('writerTitle').innerText = title + ' - 이어쓰기';
+    document.getElementById('writerBody').innerText = decodeURIComponent(encodedContent);
+    
+    // 💡 현재 챕터 번호 판별 (예: 6화 이상일 때만 체크박스 노출 로직 예시)
+    // 릴레이 데이터나 현재 진행 상황에 맞춰 chNum을 산출합니다 (여기서는 예시로 6화 진입 가정 또는 데이터 연동)
+    const currentChNum = 6; // 실제 구현 시 해당 릴레이의 현재 회차 번호 변수 대입
+    const isLong = false;   // 단편/장편 여부
+    
+    const wrapper = document.getElementById('writerFinalCheckboxWrapper');
+    if (wrapper) {
+        if ((!isLong && currentChNum >= 6 && currentChNum <= 10) || (isLong && currentChNum >= 11)) {
+            wrapper.style.display = 'flex';
+        } else {
+            wrapper.style.display = 'none';
         }
+    }
+
+    openModal('writerModal');
+}
 
         function saveRelayDraft() {
             alert("💾 원고가 임시저장되었습니다.");
@@ -1956,9 +1975,25 @@
         }
 
         function openCreatorContinueWriteModal() {
-            closeModal('creatorReadModal');
-            openModal('creatorContinueModal');
+    closeModal('creatorReadModal');
+    
+    // 💡 현재 선택된 오리지널 작품의 다음 회차 번호 계산
+    const targetCreator = creatorMockList.find(item => item.title === activeCreatorTitle);
+    const nextChNum = targetCreator ? (targetCreator.currentCh + 1) : 2;
+    const isLongFormat = targetCreator ? (targetCreator.format && targetCreator.format.includes('장편')) : true;
+
+    const wrapper = document.getElementById('creatorFinalCheckboxWrapper');
+    if (wrapper) {
+        // 단편은 6~10화 사이, 장편은 11화 이상일 때만 완결 체크박스 노출!
+        if ((!isLongFormat && nextChNum >= 6 && nextChNum <= 10) || (isLongFormat && nextChNum >= 11)) {
+            wrapper.style.display = 'flex';
+        } else {
+            wrapper.style.display = 'none';
         }
+    }
+
+    openModal('creatorContinueModal');
+}
 
         function submitCreatorContinueChapter() {
             alert("🚀 다음 회차 연재가 등록되었습니다!");
@@ -1986,6 +2021,106 @@
             return bytes;
         }
 
+        function setReaderTheme(theme) {
+            const readerBody = document.getElementById('archiveReaderBody');
+            if (!readerBody) return;
+            if (theme === 'dark') {
+                readerBody.classList.remove('theme-light');
+                readerBody.classList.add('theme-dark');
+            } else {
+                readerBody.classList.remove('theme-dark');
+                readerBody.classList.add('theme-light');
+            }
+        }
+
+        function adjustFontSize(step) {
+            currentReaderFontSize += (step * 0.08);
+            if (currentReaderFontSize < 0.85) currentReaderFontSize = 0.85;
+            if (currentReaderFontSize > 1.4) currentReaderFontSize = 1.4;
+            const readerBody = document.getElementById('archiveReaderBody');
+            if (readerBody) {
+                readerBody.style.fontSize = currentReaderFontSize + 'rem';
+            }
+        }
+
+        function moveArchiveChapter(direction) {
+            if (!activeArchiveReaderItem || !activeArchiveReaderItem.chapters) return;
+            let nextIdx = activeArchiveChapterIdx + direction;
+            if (nextIdx < 1) {
+                alert("첫 번째화입니다.");
+                return;
+            }
+            if (nextIdx > activeArchiveReaderItem.chapters.length) {
+                alert("마지막화입니다.");
+                return;
+            }
+            openArchiveChapterReader(activeArchiveReaderItem, nextIdx, isArchiveViewAllMode);
+        }
+
+        function jumpArchiveChapter(targetCh) {
+            if (!activeArchiveReaderItem || !activeArchiveReaderItem.chapters) return;
+            openArchiveChapterReader(activeArchiveReaderItem, targetCh, isArchiveViewAllMode);
+        }
+
+        function openArchiveChapterListModal() {
+            if (!activeArchiveReaderItem || !activeArchiveReaderItem.chapters) return;
+            const container = document.getElementById('archiveChapterListContainer');
+            if (!container) return;
+            
+            let html = '';
+            activeArchiveReaderItem.chapters.forEach(c => {
+                html += `
+                    <div class="chapter-list-item" onclick="closeModal('archiveChapterListModal'); openArchiveChapterReader(activeArchiveReaderItem, ${c.ch}, false);">
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${c.ch}화 : ${c.title}</div>
+                            <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${c.author}</div>
+                        </div>
+                        <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px;">읽기</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            openModal('archiveChapterListModal');
+        }
+
+        function toggleArchiveViewAll() {
+            if (!activeArchiveReaderItem) return;
+            isArchiveViewAllMode = !isArchiveViewAllMode;
+            openArchiveChapterReader(activeArchiveReaderItem, activeArchiveChapterIdx, isArchiveViewAllMode);
+        }
+
+        function openChapterCommentModal() {
+            const commentListContainer = document.getElementById('chapterCommentListContainer');
+            if (commentListContainer) {
+                commentListContainer.innerHTML = `
+                    <div class="comment-item">
+                        <div class="comment-author"><span>OceanMaster ⓒ</span><span>2026-04-05</span></div>
+                        <div>정말 몰입감 넘치는 명작입니다! 다음 전개가 기대되네요.</div>
+                    </div>
+                `;
+            }
+            openModal('chapterCommentModal');
+        }
+
+        function submitChapterComment() {
+            const textInput = document.getElementById('inputCommentText');
+            if (!textInput || !textInput.value.trim()) {
+                alert("댓글 내용을 입력해주세요.");
+                return;
+            }
+            const commentListContainer = document.getElementById('chapterCommentListContainer');
+            if (commentListContainer) {
+                const newCommentHtml = `
+                    <div class="comment-item">
+                        <div class="comment-author"><span>${currentUserId}</span><span>방금 전</span></div>
+                        <div>${textInput.value.trim()}</div>
+                    </div>
+                `;
+                commentListContainer.innerHTML = newCommentHtml + commentListContainer.innerHTML;
+            }
+            textInput.value = '';
+            alert("💬 댓글이 등록되었습니다!");
+        }
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     </script>
