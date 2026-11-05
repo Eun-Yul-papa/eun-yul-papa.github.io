@@ -2063,7 +2063,16 @@
         }
 
         function openArchiveChapterListModal() {
-            if (!activeArchiveReaderItem || !activeArchiveReaderItem.chapters) return;
+            // 💡 데이터가 혹시 비어있어도 튕기지 않도록 방어 코드 추가
+            if (!activeArchiveReaderItem) {
+                activeArchiveReaderItem = archiveDataList[0];
+            }
+            if (!activeArchiveReaderItem.chapters || activeArchiveReaderItem.chapters.length === 0) {
+                activeArchiveReaderItem.chapters = [
+                    { ch: 1, title: '본문 내용', author: activeArchiveReaderItem.creatorName || 'OceanMaster', content: activeArchiveReaderItem.desc || '저장된 내용이 없습니다.' }
+                ];
+            }
+
             const container = document.getElementById('archiveChapterListContainer');
             if (!container) return;
             
@@ -2072,8 +2081,8 @@
                 html += `
                     <div class="chapter-list-item" onclick="closeModal('archiveChapterListModal'); openArchiveChapterReader(activeArchiveReaderItem, ${c.ch}, false);">
                         <div>
-                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${c.ch}화 : ${c.title}</div>
-                            <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${c.author}</div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${c.ch}화 : ${c.title || '제목 없음'}</div>
+                            <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${c.author || 'OceanMaster'}</div>
                         </div>
                         <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px;">읽기</button>
                     </div>
@@ -2081,7 +2090,7 @@
             });
             container.innerHTML = html;
             
-            // 💡 독서창(9999)보다 더 높은 최상단 z-index(10500) 강제 부여
+            // 💡 최상단 z-index(10500) 부여 및 모달 강제 오픈
             const modal = document.getElementById('archiveChapterListModal');
             if (modal) {
                 modal.style.zIndex = '10500';
