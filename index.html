@@ -2081,14 +2081,13 @@
             });
             container.innerHTML = html;
             
-            // 💡 독서창(9999)보다 더 높은 최상단 z-index 부여
+            // 💡 독서창(9999)보다 더 높은 최상단 z-index(10500) 강제 부여
             const modal = document.getElementById('archiveChapterListModal');
             if (modal) {
                 modal.style.zIndex = '10500';
                 openModal('archiveChapterListModal');
             }
         }
-
         function toggleArchiveViewAll() {
             if (!activeArchiveReaderItem) return;
             isArchiveViewAllMode = !isArchiveViewAllMode;
