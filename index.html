@@ -1794,15 +1794,28 @@
             }
 
             let html = '';
+            const isListMode = container.classList.contains('board-list-container');
+
             filteredList.forEach(item => {
-                html += `
-                    <div class="archive-book-shelf-card" onclick="buyAndReadArchive('${item.id}', '${item.title}', 0.5)">
-                        <div class="tag-group"><span class="tag tag-archive">📚 도서관 소장품</span><span class="tag tag-meta">총 ${item.totalCh}화</span></div>
-                        <div class="title-with-flag"><span class="flag-badge">${item.flag}</span><h3>${item.title}</h3></div>
-                        <p style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 12px;">"${item.desc}"</p>
-                        <button class="btn btn-primary" onclick="event.stopPropagation(); buyAndReadArchive('${item.id}', '${item.title}', 0.5)">📖 도서 읽기 (0.5 Test-Pi)</button>
-                    </div>
-                `;
+                if (isListMode) {
+                    html += `
+                        <div class="board-list-row" onclick="buyAndReadArchive('${item.id}', '${item.title}', 0.5)">
+                            <span class="board-col-num">${item.flag || '📚'}</span>
+                            <span class="board-col-title">${item.title}</span>
+                            <span class="board-col-meta">총 ${item.totalCh}화</span>
+                            <span class="board-col-action"><button class="board-mini-btn">도서 읽기</button></span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="archive-book-shelf-card" onclick="buyAndReadArchive('${item.id}', '${item.title}', 0.5)">
+                            <div class="tag-group"><span class="tag tag-archive">📚 도서관 소장품</span><span class="tag tag-meta">총 ${item.totalCh}화</span></div>
+                            <div class="title-with-flag"><span class="flag-badge">${item.flag}</span><h3>${item.title}</h3></div>
+                            <p style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 12px;">"${item.desc}"</p>
+                            <button class="btn btn-primary" onclick="event.stopPropagation(); buyAndReadArchive('${item.id}', '${item.title}', 0.5)">📖 도서 읽기 (0.5 Test-Pi)</button>
+                        </div>
+                    `;
+                }
             });
             container.innerHTML = html;
         }
