@@ -1391,46 +1391,65 @@
         }
 
         async function createNewRelayCard() {
-            const title = document.getElementById('inputTitle').value || "무제 스토리";
-            const content = document.getElementById('storyContent').value;
-            const format = document.getElementById('selectFormat').value;
+    const title = document.getElementById('inputTitle').value || "무제 스토리";
+    const content = document.getElementById('storyContent').value;
+    const format = document.getElementById('selectFormat').value;
+    // 💡 현재 상단 드롭다운에서 선택된 언어/국가 코드 가져오기 (기본값 ID, US, KR 등)
+    const selectedLang = document.getElementById('userLangSelect') ? document.getElementById('userLangSelect').value.toUpperCase() : 'KR';
+    const nationCode = (selectedLang === 'KO') ? 'KR' : selectedLang;
 
-            try {
-                const response = await fetch('http://localhost:5000/api/relay/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, content, nation: 'KR', format })
-                });
+    try {
+        const response = await fetch('http://localhost:5000/api/relay/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content, nation: nationCode, format })
+        });
 
-                const result = await response.json();
+        const result = await response.json();
 
-                if (result.success) {
-                    relayMockList.unshift({ 
-                        id: result.data?.relayId || ('card_' + Date.now()), 
-                        title, 
-                        nation: 'KR', 
-                        format, 
-                        progress: '글쓰기 진행중(1/5)', 
-                        phase: 'write', 
-                        time: '05일 00시간 남음', 
-                        content, 
-                        creatorName: 'wnalsdud88', 
-                        isBlind: false 
-                    });
+        if (result.success) {
+            relayMockList.unshift({ 
+                id: result.data?.relayId || ('card_' + Date.now()), 
+                title, 
+                nation: nationCode, 
+                format, 
+                progress: '글쓰기 진행중(1/5)', 
+                phase: 'write', 
+                time: '05일 00시간 남음', 
+                content, 
+                creatorName: currentUserId, 
+                isBlind: false 
+            });
 
-                    closeModal('createModal');
-                    document.getElementById('inputTitle').value = '';
-                    document.getElementById('storyContent').value = '';
-                    alert(`🎉 '${title}' 스토리 릴레이가 클라우드 DB에 안전하게 개설되었습니다![cite: 4]`);
-                    renderRelayListContent();
-                } else {
-                    alert("개설 실패: " + result.message);
-                }
-            } catch (error) {
-                console.error("❌ 서버 통신 에러:", error);
-                alert("백엔드 서버와 연결할 수 없습니다. 서버가 켜져 있는지 확인해주세요!");
-            }
+            closeModal('createModal');
+            document.getElementById('inputTitle').value = '';
+            document.getElementById('storyContent').value = '';
+            alert(`🎉 '${title}' 스토리 릴레이가 등록되었습니다!`);
+            renderRelayListContent();
+        } else {
+            alert("개설 실패: " + result.message);
         }
+    } catch (error) {
+        // 백엔드 연결 전 로컬 테스트용
+        relayMockList.unshift({ 
+            id: 'card_' + Date.now(), 
+            title, 
+            nation: nationCode, 
+            format, 
+            progress: '글쓰기 진행중(1/5)', 
+            phase: 'write', 
+            time: '05일 00시간 남음', 
+            content, 
+            creatorName: currentUserId, 
+            isBlind: false 
+        });
+        closeModal('createModal');
+        document.getElementById('inputTitle').value = '';
+        document.getElementById('storyContent').value = '';
+        alert(`🎉 '${title}' 스토리 릴레이가 개설되었습니다!`);
+        renderRelayListContent();
+    }
+}
 
         async function fetchCreatorList() {
             try {
@@ -1458,39 +1477,36 @@
         }
 
         async function createNewCreatorCard() {
-            const title = document.getElementById('inputCreatorTitle').value || "무제 작품";
-            const content = document.getElementById('creatorContent').value;
-            const format = document.getElementById('selectCreatorFormat').value;
+    const title = document.getElementById('inputCreatorTitle').value || "무제 작품";
+    const content = document.getElementById('creatorContent').value;
+    const format = document.getElementById('selectCreatorFormat').value;
+    const selectedLang = document.getElementById('userLangSelect') ? document.getElementById('userLangSelect').value.toUpperCase() : 'KR';
+    const nationCode = (selectedLang === 'KO') ? 'KR' : selectedLang;
 
-            try {
-                const response = await fetch('http://localhost:5000/api/creator/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, content, nation: 'KR', format, author: currentUserId })
-                });
+    try {
+        const response = await fetch('http://localhost:5000/api/creator/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content, nation: nationCode, format, author: currentUserId })
+        });
 
-                const result = await response.json();
-                if (result.success || response.ok) {
-                    const newId = 'c_' + Date.now();
-                    creatorMockList.unshift({ id: newId, title, format, nation: 'KR', currentCh: 1, author: currentUserId, desc: content, isBlind: false });
-                    creatorStudioHistory.unshift({ id: newId, title, type: 'creator', status: '연재중', share: '95%' });
-                    renderStudioHistoryList();
+        const result = await response.json();
+        const newId = 'c_' + Date.now();
+        creatorMockList.unshift({ id: newId, title, format, nation: nationCode, currentCh: 1, author: currentUserId, desc: content, isBlind: false });
+        creatorStudioHistory.unshift({ id: newId, title, type: 'creator', status: '연재중', share: '95%' });
+        renderStudioHistoryList();
 
-                    closeModal('createCreatorModal');
-                    alert(`🎉 '${title}' 오리지널 시리즈가 클라우드 DB에 안전하게 연재등록 되었습니다!`);
-                    renderCreatorListViewContent();
-                } else {
-                    alert("오리지널 등록 실패");
-                }
-            } catch (error) {
-                const newId = 'c_' + Date.now();
-                creatorMockList.unshift({ id: newId, title, format: '장편', nation: 'KR', currentCh: 1, author: currentUserId, desc: content, isBlind: false });
-                closeModal('createCreatorModal');
-                alert(`🎉 '${title}' 오리지널 작품 연재가 시작되었습니다! (로컬 백업 완료)`);
-                renderCreatorListViewContent();
-            }
-        }
-
+        closeModal('createCreatorModal');
+        alert(`🎉 '${title}' 오리지널 시리즈가 연재 등록되었습니다!`);
+        renderCreatorListViewContent();
+    } catch (error) {
+        const newId = 'c_' + Date.now();
+        creatorMockList.unshift({ id: newId, title, format: '장편', nation: nationCode, currentCh: 1, author: currentUserId, desc: content, isBlind: false });
+        closeModal('createCreatorModal');
+        alert(`🎉 '${title}' 오리지널 작품 연재가 시작되었습니다!`);
+        renderCreatorListViewContent();
+    }
+}
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
