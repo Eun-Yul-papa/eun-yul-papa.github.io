@@ -427,7 +427,11 @@
     color: var(--primary-cyan) !important;
     background: rgba(56, 189, 248, 0.2) !important;
 }
-        
+
+.card p {
+    white-space: pre-line; /* 💡 엔터 줄바꿈을 화면에 반영하고 연속 띄어쓰기는 정돈 */
+    word-break: break-word; /* 💡 긴 영문/특수문자 연속 입력 시 카드 밖으로 튀어나가는 현상 방지 */
+}
     </style>
 </head>
 
