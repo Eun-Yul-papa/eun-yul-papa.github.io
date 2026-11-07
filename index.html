@@ -918,7 +918,7 @@ div[id$="-card-container"] p {
                 <div class="modal-title" id="candidateReaderTitle">후보작 본문 읽기</div>
                 <button class="close-btn" onclick="closeModal('candidateReaderModal')">✕</button>
             </div>
-            <button class="translate-btn" onclick="translateCurrentReaderContent()">
+            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
                 🌐 Translate to My Language (<span id="targetLangTextCandidate">English</span>)
             </button>
             <div class="reader-body theme-dark notranslate" id="candidateReaderBody" style="min-height: 200px; max-height: 350px; overflow-y: auto;"></div>
@@ -1040,7 +1040,7 @@ div[id$="-card-container"] p {
                 </div>
             </div>
 
-            <button class="translate-btn" onclick="translateCurrentReaderContent()">
+            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
                 🌐 Translate to My Language (<span id="targetLangText">English</span>)
             </button>
 
@@ -1188,7 +1188,7 @@ div[id$="-card-container"] p {
                 <button class="close-btn" onclick="closeModal('writerModal')">✕</button>
             </div>
             <input type="hidden" id="activeRelayId" value="">
-            <button class="translate-btn" onclick="translateCurrentReaderContent()">
+            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
                 🌐 Translate to My Language (<span id="targetLangText2">English</span>)
             </button>
             <div class="reader-body theme-dark notranslate" id="writerBody"></div>
@@ -1297,7 +1297,7 @@ div[id$="-card-container"] p {
                 <div class="modal-title" id="singleReaderTitle">회차 본문</div>
                 <button class="close-btn" onclick="closeModal('creatorSingleReaderModal')">✕</button>
             </div>
-            <button class="translate-btn" onclick="translateCurrentReaderContent()">
+            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
                 🌐 Translate to My Language (<span id="targetLangText">English</span>)
             </button>
             <div class="reader-body theme-dark notranslate" id="singleReaderBody"></div>
