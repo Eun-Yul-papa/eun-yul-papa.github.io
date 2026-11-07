@@ -439,6 +439,15 @@ div[id$="-card-container"] p {
     white-space: pre-line !important;
     word-break: break-word !important;
 }
+
+    /* 💡 허브와 목록 뷰가 절대 겹치지 않도록 강제 제어 */
+#relayHubView, #creatorHubView, #archiveHubView {
+    display: flex;
+    flex-direction: column;
+}
+#relayListViewContainer, #creatorListViewContainer, #archiveListViewContainer {
+    display: none;
+}
     </style>
 </head>
 
@@ -1642,62 +1651,37 @@ function getNationCode(selectElementId) {
         function toggleFollow(authorName) { alert(`🎉 '${authorName}' 작가님을 팔로우했습니다!`); }
         function claimCreatorEarnings() { alert('🎉 크리에이터 수익이 출금되었습니다!'); document.getElementById('studioClaimableBalance').innerText = '0.0 Test-Pi'; }
 
-function switchTab(tabName) {
-            // 1. 모든 메인 섹션들을 완전히 숨김 처리
+        function switchTab(tabName) {
+            // 모든 섹션 숨기기
             ['home-section', 'relay-section', 'creator-section', 'archive-section'].forEach(id => {
                 const sec = document.getElementById(id);
                 if (sec) sec.style.display = 'none';
             });
 
-            // 2. 모든 탭 버튼의 active 클래스 제거
             ['tabHomeBtn', 'tabRelayBtn', 'tabCreatorBtn', 'tabArchiveBtn'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) btn.classList.remove('active');
             });
 
-            // 3. 각 탭별 세부 허브/목록 뷰 컨테이너들도 깔끔하게 초기화 (겹침 원인 차단)
-            const relayHub = document.getElementById('relayHubView');
-            const relayList = document.getElementById('relayListViewContainer');
-            const creatorHub = document.getElementById('creatorHubView');
-            const creatorList = document.getElementById('creatorListViewContainer');
-            const archiveHub = document.getElementById('archiveHubView');
-            const archiveList = document.getElementById('archiveListViewContainer');
-
-            if (relayHub) relayHub.style.display = 'none';
-            if (relayList) relayList.style.display = 'none';
-            if (creatorHub) creatorHub.style.display = 'none';
-            if (creatorList) creatorList.style.display = 'none';
-            if (archiveHub) archiveHub.style.display = 'none';
-            if (archiveList) archiveList.style.display = 'none';
-
-            // 4. 선택한 탭 활성화 및 해당 섹션만 딱 노출
             if (tabName === 'home') {
                 document.body.classList.add('landing-mode');
-                const homeSec = document.getElementById('home-section');
-                if (homeSec) homeSec.style.display = 'flex';
-                const homeBtn = document.getElementById('tabHomeBtn');
-                if (homeBtn) homeBtn.classList.add('active');
+                document.getElementById('home-section').style.display = 'flex';
+                document.getElementById('tabHomeBtn').classList.add('active');
             } else if (tabName === 'relay') {
                 document.body.classList.remove('landing-mode');
-                const relaySec = document.getElementById('relay-section');
-                if (relaySec) relaySec.style.display = 'block';
-                const relayBtn = document.getElementById('tabRelayBtn');
-                if (relayBtn) relayBtn.classList.add('active');
-                backToRelayHub();
+                document.getElementById('relay-section').style.display = 'block';
+                document.getElementById('tabRelayBtn').classList.add('active');
+                backToRelayHub(); // 허브 화면 강제 노출 & 목록 숨김
             } else if (tabName === 'creator') {
                 document.body.classList.remove('landing-mode');
-                const creatorSec = document.getElementById('creator-section');
-                if (creatorSec) creatorSec.style.display = 'block';
-                const creatorBtn = document.getElementById('tabCreatorBtn');
-                if (creatorBtn) creatorBtn.classList.add('active');
-                backToCreatorHub();
+                document.getElementById('creator-section').style.display = 'block';
+                document.getElementById('tabCreatorBtn').classList.add('active');
+                backToCreatorHub(); // 허브 화면 강제 노출 & 목록 숨김
             } else if (tabName === 'archive') {
                 document.body.classList.remove('landing-mode');
-                const archiveSec = document.getElementById('archive-section');
-                if (archiveSec) archiveSec.style.display = 'block';
-                const archiveBtn = document.getElementById('tabArchiveBtn');
-                if (archiveBtn) archiveBtn.classList.add('active');
-                backToArchiveHub();
+                document.getElementById('archive-section').style.display = 'block';
+                document.getElementById('tabArchiveBtn').classList.add('active');
+                backToArchiveHub(); // 허브 화면 강제 노출 & 목록 숨김
             }
         }
         function showRelayListView(mode) {
@@ -1710,13 +1694,9 @@ function switchTab(tabName) {
 
         function backToRelayHub() {
             currentRelayHubMode = 'write';
-            const relayList = document.getElementById('relayListViewContainer');
-            const relayHub = document.getElementById('relayHubView');
-            if (relayList) relayList.style.display = 'none';
-            if (relayHub) relayHub.style.display = 'flex';
-            
-            const container = document.getElementById('relay-card-container');
-            if (container) container.innerHTML = '';
+            document.getElementById('relayListViewContainer').style.display = 'none';
+            document.getElementById('relayHubView').style.display = 'flex';
+            document.getElementById('relay-card-container').innerHTML = '';
         }
 
         function showCreatorListView() {
@@ -1726,13 +1706,9 @@ function switchTab(tabName) {
         }
 
         function backToCreatorHub() {
-            const creatorList = document.getElementById('creatorListViewContainer');
-            const creatorHub = document.getElementById('creatorHubView');
-            if (creatorList) creatorList.style.display = 'none';
-            if (creatorHub) creatorHub.style.display = 'flex';
-            
-            const container = document.getElementById('creator-card-container');
-            if (container) container.innerHTML = '';
+            document.getElementById('creatorListViewContainer').style.display = 'none';
+            document.getElementById('creatorHubView').style.display = 'flex';
+            document.getElementById('creator-card-container').innerHTML = '';
         }
 
         function showArchiveFilteredList(type) {
@@ -1742,13 +1718,9 @@ function switchTab(tabName) {
         }
 
         function backToArchiveHub() {
-            const archiveList = document.getElementById('archiveListViewContainer');
-            const archiveHub = document.getElementById('archiveHubView');
-            if (archiveList) archiveList.style.display = 'none';
-            if (archiveHub) archiveHub.style.display = 'flex';
-            
-            const container = document.getElementById('archive-card-container');
-            if (container) container.innerHTML = '';
+            document.getElementById('archiveListViewContainer').style.display = 'none';
+            document.getElementById('archiveHubView').style.display = 'flex';
+            document.getElementById('archive-card-container').innerHTML = '';
             renderArchiveHubHero();
         }
 
