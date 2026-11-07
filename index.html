@@ -1360,6 +1360,34 @@ div[id$="-card-container"] p {
             new google.translate.TranslateElement({ pageLanguage: 'auto', autoDisplay: false }, 'google_translate_element');
         }
 
+        // 드롭다운 선택값(언어/국가명)을 정확한 2자리 국가 코드로 매핑해주는 함수
+function getNationCode(selectElementId) {
+    const selectElem = document.getElementById(selectElementId);
+    if (!selectElem) return 'KR';
+    const val = selectElem.value.toLowerCase().trim();
+    
+    const mapping = {
+        'ko': 'KR', 'korean': 'KR', 'kr': 'KR',
+        'en': 'US', 'english': 'US', 'us': 'US',
+        'zh': 'CN', 'chinese': 'CN', 'cn': 'CN',
+        'ja': 'JP', 'japanese': 'JP', 'jp': 'JP',
+        'es': 'ES', 'spanish': 'ES', 'espaniol': 'ES',
+        'vn': 'VN', 'vietnamese': 'VN', 'tieng viet': 'VN',
+        'id': 'ID', 'indonesian': 'ID',
+        'hi': 'IN', 'hindi': 'IN', 'in': 'IN',
+        'tl': 'PH', 'fil': 'PH', 'tagalog': 'PH', 'ph': 'PH',
+        'it': 'IT', 'italian': 'IT',
+        'fr': 'FR', 'french': 'FR',
+        'de': 'DE', 'german': 'DE', 'deutsch': 'DE',
+        'nl': 'NL', 'dutch': 'NL', 'nederlands': 'NL'
+    };
+    
+    // 맵에 있으면 해당 코드 반환, 없으면 대문자로 변환해서 반환 (두 글자 보장)
+    if (mapping[val]) return mapping[val];
+    if (val.length === 2) return val.toUpperCase();
+    return 'KR'; // 기본값
+}
+        
         function setUserLanguage(langCode) {
             selectedUserLang = langCode;
             ['targetLangText', 'targetLangText2', 'targetLangTextCandidate'].forEach(id => {
@@ -1404,7 +1432,7 @@ div[id$="-card-container"] p {
     const format = document.getElementById('selectFormat').value;
     // 💡 현재 상단 드롭다운에서 선택된 언어/국가 코드 가져오기 (기본값 ID, US, KR 등)
     const selectedLang = document.getElementById('userLangSelect') ? document.getElementById('userLangSelect').value.toUpperCase() : 'KR';
-    const nationCode = (selectedLang === 'KO') ? 'KR' : selectedLang;
+    const nationCode = getNationCode('userLangSelect');
 
     try {
         const response = await fetch('http://localhost:5000/api/relay/create', {
@@ -1489,7 +1517,7 @@ div[id$="-card-container"] p {
     const content = document.getElementById('creatorContent').value;
     const format = document.getElementById('selectCreatorFormat').value;
     const selectedLang = document.getElementById('userLangSelect') ? document.getElementById('userLangSelect').value.toUpperCase() : 'KR';
-    const nationCode = (selectedLang === 'KO') ? 'KR' : selectedLang;
+    const nationCode = getNationCode('userLangSelect');
 
     try {
         const response = await fetch('http://localhost:5000/api/creator/create', {
