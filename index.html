@@ -1365,14 +1365,13 @@ div[id$="-card-container"] p {
         let relayMockList = [];
         let creatorMockList = [];
 
-        // 구글 번역 위젯 초기화 콜백
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({ 
-                pageLanguage: 'ko', 
-                includedLanguages: 'ko,en,zh-CN,ja,es,vi,id,hi,tl,it,fr,de,nl', 
-                autoDisplay: false 
-            }, 'google_translate_element');
-        }
+        // 1. 구글 번역 초기화 (도메인 전체 쿠키 트래킹 활성화)
+    function googleTranslateElementInit() {
+        new google.translate.TranslateElement({ 
+        pageLanguage: 'ko', 
+        autoDisplay: false 
+        }, 'google_translate_element');
+    }
 
         // 드롭다운 선택값(언어/국가명)을 정확한 2자리 국가 코드로 매핑해주는 함수
 function getNationCode(selectElementId) {
@@ -1402,35 +1401,34 @@ function getNationCode(selectElementId) {
     return 'KR'; // 기본값
 }
         
-        // 실시간 번역 함수 (구글 번역 콤보박스 강제 제어 + 쿠키 백업)
-        function setUserLanguage(langCode) {
-            selectedUserLang = langCode;
-            
-            // 1. 안내 텍스트 반영
-            ['targetLangText', 'targetLangText2', 'targetLangTextCandidate'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerText = langCode.toUpperCase();
-            });
+// 2. 새로고침 없이 100% 실시간 언어 전환 함수
+function setUserLanguage(langCode) {
+    selectedUserLang = langCode;
+    
+    // 안내 텍스트 변경
+    ['targetLangText', 'targetLangText2', 'targetLangTextCandidate'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = langCode.toUpperCase();
+    });
 
-            // 2. 구글 번역 쿠키 선언 (구글 엔진이 인식하도록)
-            const cookieValue = `/ko/${langCode}`;
-            document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname}`;
-            document.cookie = `googtrans=${cookieValue}; path=/;`;
-
-            // 3. 구글 번역 콤보박스(.goog-te-combo) 찾아 값 변경 후 강제 이벤트 발생
-            const googleCombo = document.querySelector('.goog-te-combo');
-            if (googleCombo) {
-                googleCombo.value = langCode;
-                googleCombo.dispatchEvent(new Event('change'));
-                // 간혹 change만 먹고 실시간 반영이 안 될 경우를 대비한 추가 이벤트
-                googleCombo.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    // 구글 번역 내부 콤보박스(.goog-te-combo) 강제 제어
+    const googleCombo = document.querySelector('.goog-te-combo');
+    
+    if (googleCombo) {
+        googleCombo.value = langCode;
+        // change 이벤트를 발생시켜 구글 번역 엔진이 페이지를 즉시 실시간 번역하도록 유도
+        googleCombo.dispatchEvent(new Event('change'));
+    } else {
+        // 위젯이 아직 미처 안 올라왔을 경우를 대비한 딜레이 처리
+        setTimeout(() => {
+            const retryCombo = document.querySelector('.goog-te-combo');
+            if (retryCombo) {
+                retryCombo.value = langCode;
+                retryCombo.dispatchEvent(new Event('change'));
             }
-
-            // 4. 즉시 반영을 위해 짧은 딜레이 후 강제 새로고침 (사용자가 눈치채기 전에 빠르게 전환)
-            setTimeout(() => {
-                location.reload();
-            }, 100);
-        }
+        }, 300);
+    }
+}
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
         // ==========================================
