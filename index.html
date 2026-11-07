@@ -1399,12 +1399,26 @@ function getNationCode(selectElementId) {
         
         function setUserLanguage(langCode) {
             selectedUserLang = langCode;
+            
+            // 1. 안내 텍스트 반영
             ['targetLangText', 'targetLangText2', 'targetLangTextCandidate'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.innerText = langCode.toUpperCase();
             });
-        }
 
+            // 2. 구글 번역 위젯의 숨겨진 select 박스를 찾아 실시간으로 값 변경 후 이벤트 트리거
+            const googleCombo = document.querySelector('.goog-te-combo');
+            if (googleCombo) {
+                googleCombo.value = langCode;
+                googleCombo.dispatchEvent(new Event('change')); // 💡 새로고침 없이 실시간 번역 실행!
+            } else {
+                // 만약 위젯이 아직 완전히 로드되지 않았거나 쿠키 방식으로 fallback 해야 할 경우
+                const cookieValue = `/ko/${langCode}`;
+                document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname}`;
+                document.cookie = `googtrans=${cookieValue}; path=/;`;
+                console.warn("구글 번역 콤보박스를 찾지 못해 쿠키 방식으로 전환합니다.");
+            }
+        }
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
         // ==========================================
