@@ -1970,14 +1970,108 @@ function getNationCode(selectElementId) {
             }
         }
 
+        // ⚙️ 관리자 대시보드 오픈 시 전체 콘텐츠 목록 및 신고 목록 동시 렌더링
         function openAdminDashboardModal() {
             if (!subAdminList.includes(currentUserId)) {
                 alert("❌ 접근 권한이 없습니다.");
                 return;
             }
+            
+            // 관리자 ID 표시
+            const adminIdElem = document.getElementById('adminCurrentUserId');
+            if (adminIdElem) adminIdElem.innerText = currentUserId;
+
+            // 관리자 대시보드 내 통합 콘텐츠 관리 리스트 렌더링
+            renderAdminContentList();
+            
             openModal('adminDashboardModal');
         }
 
+        // 📋 관리자용 전체 글 목록 및 삭제 관리 렌더링
+        function renderAdminContentList() {
+            const listContainer = document.getElementById('adminReportedContentList');
+            if (!listContainer) return;
+
+            let html = `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 테스트용 글이나 불건전한 게시글을 관리자 권한으로 즉시 삭제할 수 있습니다.</div>`;
+
+            // 1. 스토리 릴레이 목록 합치기
+            if (relayMockList.length > 0) {
+                html += `<div style="font-weight:700; color:var(--primary-cyan); margin:8px 0 4px 0;">[스토리 릴레이 목록]</div>`;
+                relayMockList.forEach(item => {
+                    html += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;">
+                            <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">
+                                <b>[릴레이]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(${item.nation})</span>
+                            </div>
+                            <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'relay')">삭제</button>
+                        </div>
+                    `;
+                });
+            }
+
+            // 2. 오리지널 시리즈 목록 합치기
+            if (creatorMockList.length > 0) {
+                html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[오리지널 시리즈 목록]</div>`;
+                creatorMockList.forEach(item => {
+                    html += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;">
+                            <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">
+                                <b>[오리지널]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(작가: ${item.author})</span>
+                            </div>
+                            <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'creator')">삭제</button>
+                        </div>
+                    `;
+                });
+            }
+
+            if (relayMockList.length === 0 && creatorMockList.length === 0) {
+                html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">등록된 게시글이 없습니다.</div>`;
+            }
+
+            listContainer.innerHTML = html;
+        }
+        // 🗑️ 관리자 글 삭제 실행 함수
+        async function adminDeleteContent(contentId, type) {
+            if (!confirm("⚠️ 정말 이 게시글을 영구 삭제하시겠습니까?")) return;
+
+            try {
+                // 백엔드 삭제 API 호출
+                const response = await fetch(`http://localhost:5000/api/admin/content/${contentId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (result.success || response.ok) {
+                    // 프론트엔드 배열에서도 즉시 제거
+                    if (type === 'relay') {
+                        relayMockList = relayMockList.filter(item => item.id !== contentId);
+                        renderRelayListContent();
+                    } else {
+                        creatorMockList = creatorMockList.filter(item => item.id !== contentId);
+                        renderCreatorListViewContent();
+                    }
+
+                    alert("🗑️ 게시글이 성공적으로 삭제되었습니다.");
+                    renderAdminContentList(); // 대시보드 목록 새로고침
+                } else {
+                    alert("삭제 실패: " + (result.message || "서버 오류"));
+                }
+            } catch (error) {
+                console.warn("⚠️ 백엔드 통신 에러로 로컬 목록에서만 삭제합니다.", error);
+                
+                // 로컬 테스트용 강제 제거 방어 코드
+                if (type === 'relay') {
+                    relayMockList = relayMockList.filter(item => item.id !== contentId);
+                    renderRelayListContent();
+                } else {
+                    creatorMockList = creatorMockList.filter(item => item.id !== contentId);
+                    renderCreatorListViewContent();
+                }
+                alert("🗑️ 게시글이 삭제되었습니다. (로컬 반영)");
+                renderAdminContentList();
+            }
+        }
+        
         function addSubAdmin() {
             const newAdmin = document.getElementById('inputSubAdminId').value.trim();
             if (newAdmin && !subAdminList.includes(newAdmin)) {
