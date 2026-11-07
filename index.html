@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deep Blue Sea - Web3 Storytelling DApp</title>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
         :root {
@@ -44,10 +43,6 @@
             background-attachment: fixed;
             background-repeat: no-repeat;
         }
-
-        .goog-te-banner-frame { display: none !important; }
-        .goog-te-gadget { display: none !important; }
-        #google_translate_element { display: none; }
 
         header {
             background: rgba(2, 9, 22, 0.85);
@@ -1403,20 +1398,14 @@ function getNationCode(selectElementId) {
         function setUserLanguage(langCode) {
             selectedUserLang = langCode;
             
-            // 모달 및 안내 텍스트 반영
+            // 모달 및 상단 안내 텍스트 반영
             ['targetLangText', 'targetLangText2', 'targetLangTextCandidate'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.innerText = langCode.toUpperCase();
             });
 
-            // 구글 번역 표준 쿠키 강제 설정 (한국어 'ko'에서 선택한 언어로 전환)
-            const cookieValue = `/ko/${langCode}`;
-            document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname}`;
-            document.cookie = `googtrans=${cookieValue}; path=/;`;
-
-            // 즉시 페이지를 새로고침하여 구글 번역 엔진이 쿠키를 읽어 전체 번역을 수행하도록 유도
-            // (사용자가 선택한 즉시 딜레이 없이 바로 번역된 화면으로 진입합니다)
-            location.reload();
+            // 선택한 언어 코드 확인용 피드백 (필요시 제거 가능)
+            console.log("선택된 언어 코드로 전환:", langCode);
         }
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
