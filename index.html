@@ -449,8 +449,6 @@ div[id$="-card-container"] p {
 
 <body class="landing-mode">
 
-    <div id="google_translate_element"></div>
-
     <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
     <div class="side-drawer" id="sideDrawer">
         <div class="drawer-header">
@@ -1401,34 +1399,25 @@ function getNationCode(selectElementId) {
     return 'KR'; // 기본값
 }
         
-// 2. 새로고침 없이 100% 실시간 언어 전환 함수
-function setUserLanguage(langCode) {
-    selectedUserLang = langCode;
-    
-    // 안내 텍스트 변경
-    ['targetLangText', 'targetLangText2', 'targetLangTextCandidate'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = langCode.toUpperCase();
-    });
+// 🌍 실시간 언어 선택 시 쿠키 세팅 및 즉시 번역 이동 함수
+        function setUserLanguage(langCode) {
+            selectedUserLang = langCode;
+            
+            // 모달 및 안내 텍스트 반영
+            ['targetLangText', 'targetLangText2', 'targetLangTextCandidate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = langCode.toUpperCase();
+            });
 
-    // 구글 번역 내부 콤보박스(.goog-te-combo) 강제 제어
-    const googleCombo = document.querySelector('.goog-te-combo');
-    
-    if (googleCombo) {
-        googleCombo.value = langCode;
-        // change 이벤트를 발생시켜 구글 번역 엔진이 페이지를 즉시 실시간 번역하도록 유도
-        googleCombo.dispatchEvent(new Event('change'));
-    } else {
-        // 위젯이 아직 미처 안 올라왔을 경우를 대비한 딜레이 처리
-        setTimeout(() => {
-            const retryCombo = document.querySelector('.goog-te-combo');
-            if (retryCombo) {
-                retryCombo.value = langCode;
-                retryCombo.dispatchEvent(new Event('change'));
-            }
-        }, 300);
-    }
-}
+            // 구글 번역 표준 쿠키 강제 설정 (한국어 'ko'에서 선택한 언어로 전환)
+            const cookieValue = `/ko/${langCode}`;
+            document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname}`;
+            document.cookie = `googtrans=${cookieValue}; path=/;`;
+
+            // 즉시 페이지를 새로고침하여 구글 번역 엔진이 쿠키를 읽어 전체 번역을 수행하도록 유도
+            // (사용자가 선택한 즉시 딜레이 없이 바로 번역된 화면으로 진입합니다)
+            location.reload();
+        }
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
         // ==========================================
