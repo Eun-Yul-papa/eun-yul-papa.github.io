@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" translate="no">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1703,8 +1703,13 @@ function setUserLanguage(langCode) {
         }
 
         function backToRelayHub() {
-            document.getElementById('relayHubView').style.display = 'flex';
+            currentRelayHubMode = 'write';
             document.getElementById('relayListViewContainer').style.display = 'none';
+            document.getElementById('relayHubView').style.display = 'flex';
+            
+            // 💡 잔상 및 겹침 방지를 위해 카드 컨테이너 초기화
+            const container = document.getElementById('relay-card-container');
+            if (container) container.innerHTML = '';
         }
 
         function showCreatorListView() {
@@ -1714,8 +1719,11 @@ function setUserLanguage(langCode) {
         }
 
         function backToCreatorHub() {
-            document.getElementById('creatorHubView').style.display = 'flex';
             document.getElementById('creatorListViewContainer').style.display = 'none';
+            document.getElementById('creatorHubView').style.display = 'flex';
+            
+            const container = document.getElementById('creator-card-container');
+            if (container) container.innerHTML = '';
         }
 
         function showArchiveFilteredList(type) {
@@ -1725,8 +1733,11 @@ function setUserLanguage(langCode) {
         }
 
         function backToArchiveHub() {
-            document.getElementById('archiveHubView').style.display = 'flex';
             document.getElementById('archiveListViewContainer').style.display = 'none';
+            document.getElementById('archiveHubView').style.display = 'flex';
+            
+            const container = document.getElementById('archive-card-container');
+            if (container) container.innerHTML = '';
             renderArchiveHubHero();
         }
 
