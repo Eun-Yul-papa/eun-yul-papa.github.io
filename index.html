@@ -918,7 +918,7 @@ div[id$="-card-container"] p {
                 <div class="modal-title" id="candidateReaderTitle">후보작 본문 읽기</div>
                 <button class="close-btn" onclick="closeModal('candidateReaderModal')">✕</button>
             </div>
-            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
+            <button class="translate-btn" onclick="translateCurrentReaderContent()">
                 🌐 Translate to My Language (<span id="targetLangTextCandidate">English</span>)
             </button>
             <div class="reader-body theme-dark notranslate" id="candidateReaderBody" style="min-height: 200px; max-height: 350px; overflow-y: auto;"></div>
@@ -1040,7 +1040,7 @@ div[id$="-card-container"] p {
                 </div>
             </div>
 
-            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
+            <button class="translate-btn" onclick="translateCurrentReaderContent()">
                 🌐 Translate to My Language (<span id="targetLangText">English</span>)
             </button>
 
@@ -1188,7 +1188,7 @@ div[id$="-card-container"] p {
                 <button class="close-btn" onclick="closeModal('writerModal')">✕</button>
             </div>
             <input type="hidden" id="activeRelayId" value="">
-            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
+            <button class="translate-btn" onclick="translateCurrentReaderContent()">
                 🌐 Translate to My Language (<span id="targetLangText2">English</span>)
             </button>
             <div class="reader-body theme-dark notranslate" id="writerBody"></div>
@@ -1297,7 +1297,7 @@ div[id$="-card-container"] p {
                 <div class="modal-title" id="singleReaderTitle">회차 본문</div>
                 <button class="close-btn" onclick="closeModal('creatorSingleReaderModal')">✕</button>
             </div>
-            <button class="translate-btn" onclick="translateCurrentReaderContent(this)">
+            <button class="translate-btn" onclick="translateCurrentReaderContent()">
                 🌐 Translate to My Language (<span id="targetLangText">English</span>)
             </button>
             <div class="reader-body theme-dark notranslate" id="singleReaderBody"></div>
@@ -1562,56 +1562,6 @@ function getNationCode(selectElementId) {
         renderCreatorListViewContent();
     }
 }
-        // 🌐 'Translate to My Language' 버튼을 눌렀을 때 실행되는 동적 번역 함수
-        // 🌐 백엔드 연동 실시간 동적 번역 함수
-        async function translateCurrentReaderContent(btnElement) {
-            const targetLang = selectedUserLang; // 선택된 언어 코드 (예: 'en', 'zh-CN' 등)
-            
-            // 현재 열려있는 모달의 본문 엘리먼트 탐색
-            const readerBodyElem = document.getElementById('archiveReaderBody') 
-                                || document.getElementById('candidateReaderBody') 
-                                || document.getElementById('singleReaderBody')
-                                || document.getElementById('writerBody');
-            
-            if (!readerBodyElem) {
-                alert("번역할 본문 영역을 찾을 수 없습니다.");
-                return;
-            }
-
-            const originalText = readerBodyElem.innerText;
-            if (!originalText.trim()) return;
-
-            const btn = btnElement || (typeof event !== 'undefined' ? event.currentTarget : null);
-            const originalBtnText = btn ? btn.innerText : "";
-            if (btn) btn.innerText = "⏳ translating...";
-
-            try {
-                // 🚀 백엔드 서버(포트 5000)로 번역 요청 전송
-                const response = await fetch('http://localhost:5000/api/translate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        text: originalText, 
-                        targetLang: targetLang 
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success && result.translatedText) {
-                    // 💡 백엔드에서 받아온 번역 텍스트로 본문을 즉시 교체!
-                    readerBodyElem.innerText = result.translatedText;
-                    alert(`✨ 성공적으로 [${targetLang.toUpperCase()}] 언어로 번역되었습니다!`);
-                } else {
-                    throw new Error(result.message || "Translation failed");
-                }
-
-            } catch (error) {
-                console.error("⚠️ 번역 통신 에러:", error);
-                alert("번역 서버 통신 중 오류가 발생했습니다.");
-            } finally {
-                if (btn) btn.innerText = originalBtnText || `🌐 Translate to My Language (${targetLang.toUpperCase()})`;
-            }
-        }
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
