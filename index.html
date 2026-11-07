@@ -1563,10 +1563,11 @@ function getNationCode(selectElementId) {
     }
 }
         // 🌐 'Translate to My Language' 버튼을 눌렀을 때 실행되는 동적 번역 함수
-        async function translateCurrentReaderContent() {
-            const targetLang = selectedUserLang; // 상단 드롭다운에서 선택된 언어 코드 (예: 'en', 'zh-CN', 'id' 등)
+        // 🌐 백엔드 연동 실시간 동적 번역 함수
+        async function translateCurrentReaderContent(btnElement) {
+            const targetLang = selectedUserLang; // 선택된 언어 코드 (예: 'en', 'zh-CN' 등)
             
-            // 현재 열려있는 리더 모달들의 본문 엘리먼트 탐색
+            // 현재 열려있는 모달의 본문 엘리먼트 탐색
             const readerBodyElem = document.getElementById('archiveReaderBody') 
                                 || document.getElementById('candidateReaderBody') 
                                 || document.getElementById('singleReaderBody')
@@ -1580,12 +1581,12 @@ function getNationCode(selectElementId) {
             const originalText = readerBodyElem.innerText;
             if (!originalText.trim()) return;
 
-            // 사용자 경험(UX)을 위한 로딩 표시
-            const originalBtnText = event.target.innerText;
-            event.target.innerText = "⏳ translating...";
+            const btn = btnElement || (typeof event !== 'undefined' ? event.currentTarget : null);
+            const originalBtnText = btn ? btn.innerText : "";
+            if (btn) btn.innerText = "⏳ translating...";
 
             try {
-                // 🚀 Node.js 백엔드 번역 API 호출
+                // 🚀 백엔드 서버(포트 5000)로 번역 요청 전송
                 const response = await fetch('http://localhost:5000/api/translate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1597,6 +1598,7 @@ function getNationCode(selectElementId) {
 
                 const result = await response.json();
                 if (result.success && result.translatedText) {
+                    // 💡 백엔드에서 받아온 번역 텍스트로 본문을 즉시 교체!
                     readerBodyElem.innerText = result.translatedText;
                     alert(`✨ 성공적으로 [${targetLang.toUpperCase()}] 언어로 번역되었습니다!`);
                 } else {
@@ -1604,14 +1606,10 @@ function getNationCode(selectElementId) {
                 }
 
             } catch (error) {
-                console.warn("⚠️ 백엔드 번역 서버가 켜져있지 않거나 통신 실패하여 시뮬레이션 번역을 적용합니다.", error);
-                
-                // 백엔드 연결 전 테스트용 시뮬레이션
-                setTimeout(() => {
-                    readerBodyElem.innerText = `[AI Cloud Translated to ${targetLang.toUpperCase()}]:\n${originalText}`;
-                }, 400);
+                console.error("⚠️ 번역 통신 에러:", error);
+                alert("번역 서버 통신 중 오류가 발생했습니다.");
             } finally {
-                event.target.innerText = originalBtnTest || "🌐 Translate to My Language (" + targetLang.toUpperCase() + ")";
+                if (btn) btn.innerText = originalBtnText || `🌐 Translate to My Language (${targetLang.toUpperCase()})`;
             }
         }
         // ==========================================
