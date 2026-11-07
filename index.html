@@ -2035,16 +2035,73 @@ function getNationCode(selectElementId) {
         function openCreatorReadModal(title, totalCh, author) {
             activeCreatorTitle = title;
             document.getElementById('creatorModalTitle').innerText = `'${title}' 회차 목록`;
-            document.getElementById('creatorChapterListContainer').innerHTML = `
+            
+            const isMyWork = (author === currentUserId);
+            const targetCreator = creatorMockList.find(item => item.title === title);
+            
+            // 💡 회차 데이터 가져오기 (만약 챕터 배열이 없으면 기본 1화만 있는 것으로 처리)
+            let chapters = (targetCreator && targetCreator.chapters) ? targetCreator.chapters : [
+                { ch: 1, title: '제 1화', author: author, status: 'completed', price: '무료 공개' }
+            ];
+
+            // 💡 독자 입장에서 2화 이상이 아직 없다면 '2화 집필 중...' 가상 항목 추가 연출
+            let html = '';
+
+            // 1화는 무조건 고정 무료 공개
+            html += `
                 <div class="chapter-list-item">
                     <div>
                         <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 1화</div>
                         <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${author} (무료 공개)</div>
                     </div>
-                    <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px;" onclick="readCreatorChapter('${title}', 1)">📖 읽기</button>
+                    <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px;" onclick="readCreatorChapter('${title}', 1)">📖 1화 읽기</button>
                 </div>
             `;
-            document.getElementById('btnContinueCreatorWrite').style.display = (author === currentUserId) ? 'block' : 'none';
+
+            // 만약 총 회차가 1화뿐이라면 (독자 시점)
+            if (chapters.length <= 1 && !isMyWork) {
+                html += `
+                    <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 2화</div>
+                            <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ 다음 회차 집필 중...</div>
+                        </div>
+                        <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
+                    </div>
+                `;
+            } else {
+                // 2화 이상 존재할 경우 순차적으로 목록 생성
+                for (let i = 2; i <= (targetCreator ? (targetCreator.currentCh || 2) : 2); i++) {
+                    html += `
+                        <div class="chapter-list-item">
+                            <div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${i}화</div>
+                                <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${author} (유료 연재)</div>
+                            </div>
+                            <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px; border-color: var(--primary-cyan); color: var(--primary-cyan);" onclick="readCreatorChapter('${title}', ${i})">📖 ${i}화 읽기 (0.1 Test-Pi)</button>
+                        </div>
+                    `;
+                }
+
+                // 독자 기준에서 다음 회차가 아직 집필 중인 상태를 보여주고 싶을 때의 표시
+                if (!isMyWork) {
+                    html += `
+                        <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
+                            <div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 ${(targetCreator ? targetCreator.currentCh : 1) + 1}화</div>
+                                <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ 집필 중...</div>
+                            </div>
+                            <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
+                        </div>
+                    `;
+                }
+            }
+
+            document.getElementById('creatorChapterListContainer').innerHTML = html;
+            
+            // 💡 오직 작가 본인에게만 '다음 회차 연재하기' 버튼 노출
+            document.getElementById('btnContinueCreatorWrite').style.display = isMyWork ? 'block' : 'none';
+            
             openModal('creatorReadModal');
         }
 
