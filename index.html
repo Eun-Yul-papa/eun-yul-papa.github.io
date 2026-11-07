@@ -2217,25 +2217,33 @@ function getNationCode(selectElementId) {
         }
 
         function openCreatorContinueWriteModal() {
-    closeModal('creatorReadModal');
-    
-    // 💡 현재 선택된 오리지널 작품의 다음 회차 번호 계산
-    const targetCreator = creatorMockList.find(item => item.title === activeCreatorTitle);
-    const nextChNum = targetCreator ? (targetCreator.currentCh + 1) : 2;
-    const isLongFormat = targetCreator ? (targetCreator.format && targetCreator.format.includes('장편')) : true;
+            closeModal('creatorReadModal');
+            
+            // 💡 현재 선택된 오리지널 작품의 정보 탐색
+            const targetCreator = creatorMockList.find(item => item.title === activeCreatorTitle);
+            const nextChNum = targetCreator ? (targetCreator.currentCh + 1) : 2;
+            
+            // 작품 포맷이 '장편'인지 여부 파악 (기본값 장편 혹은 포맷 문자열 확인)
+            const formatStr = targetCreator ? (targetCreator.format || '') : '';
+            const isLongFormat = formatStr.includes('장편') || (!formatStr.includes('단편') && true);
 
-    const wrapper = document.getElementById('creatorFinalCheckboxWrapper');
-    if (wrapper) {
-        // 단편은 6~10화 사이, 장편은 11화 이상일 때만 완결 체크박스 노출!
-        if ((!isLongFormat && nextChNum >= 6 && nextChNum <= 10) || (isLongFormat && nextChNum >= 11)) {
-            wrapper.style.display = 'flex';
-        } else {
-            wrapper.style.display = 'none';
+            const wrapper = document.getElementById('creatorFinalCheckboxWrapper');
+            if (wrapper) {
+                // 📌 조건 적용:
+                // - 단편: 6화에서 10화 사이일 때만 노출 (!isLongFormat && nextChNum >= 6 && nextChNum <= 10)
+                // - 장편: 11화 이상부터 계속 노출 (isLongFormat && nextChNum >= 11)
+                if ((!isLongFormat && nextChNum >= 6 && nextChNum <= 10) || (isLongFormat && nextChNum >= 11)) {
+                    wrapper.style.display = 'flex';
+                } else {
+                    wrapper.style.display = 'none';
+                    // 창을 열 때 체크박스 초기화
+                    const chkBox = document.getElementById('checkFinalChapterCreator');
+                    if (chkBox) chkBox.checked = false;
+                }
+            }
+
+            openModal('creatorContinueModal');
         }
-    }
-
-    openModal('creatorContinueModal');
-}
 
         function submitCreatorContinueChapter() {
             alert("🚀 다음 회차 연재가 등록되었습니다!");
