@@ -1365,8 +1365,13 @@ div[id$="-card-container"] p {
         let relayMockList = [];
         let creatorMockList = [];
 
+        // 구글 번역 위젯 초기화 콜백
         function googleTranslateElementInit() {
-            new google.translate.TranslateElement({ pageLanguage: 'auto', autoDisplay: false }, 'google_translate_element');
+            new google.translate.TranslateElement({ 
+                pageLanguage: 'ko', 
+                includedLanguages: 'ko,en,zh-CN,ja,es,vi,id,hi,tl,it,fr,de,nl', 
+                autoDisplay: false 
+            }, 'google_translate_element');
         }
 
         // 드롭다운 선택값(언어/국가명)을 정확한 2자리 국가 코드로 매핑해주는 함수
@@ -1397,6 +1402,7 @@ function getNationCode(selectElementId) {
     return 'KR'; // 기본값
 }
         
+        // 실시간 번역 함수 (구글 번역 콤보박스 강제 제어 + 쿠키 백업)
         function setUserLanguage(langCode) {
             selectedUserLang = langCode;
             
@@ -1406,18 +1412,24 @@ function getNationCode(selectElementId) {
                 if (el) el.innerText = langCode.toUpperCase();
             });
 
-            // 2. 구글 번역 위젯의 숨겨진 select 박스를 찾아 실시간으로 값 변경 후 이벤트 트리거
+            // 2. 구글 번역 쿠키 선언 (구글 엔진이 인식하도록)
+            const cookieValue = `/ko/${langCode}`;
+            document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname}`;
+            document.cookie = `googtrans=${cookieValue}; path=/;`;
+
+            // 3. 구글 번역 콤보박스(.goog-te-combo) 찾아 값 변경 후 강제 이벤트 발생
             const googleCombo = document.querySelector('.goog-te-combo');
             if (googleCombo) {
                 googleCombo.value = langCode;
-                googleCombo.dispatchEvent(new Event('change')); // 💡 새로고침 없이 실시간 번역 실행!
-            } else {
-                // 만약 위젯이 아직 완전히 로드되지 않았거나 쿠키 방식으로 fallback 해야 할 경우
-                const cookieValue = `/ko/${langCode}`;
-                document.cookie = `googtrans=${cookieValue}; path=/; domain=${window.location.hostname}`;
-                document.cookie = `googtrans=${cookieValue}; path=/;`;
-                console.warn("구글 번역 콤보박스를 찾지 못해 쿠키 방식으로 전환합니다.");
+                googleCombo.dispatchEvent(new Event('change'));
+                // 간혹 change만 먹고 실시간 반영이 안 될 경우를 대비한 추가 이벤트
+                googleCombo.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
             }
+
+            // 4. 즉시 반영을 위해 짧은 딜레이 후 강제 새로고침 (사용자가 눈치채기 전에 빠르게 전환)
+            setTimeout(() => {
+                location.reload();
+            }, 100);
         }
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
