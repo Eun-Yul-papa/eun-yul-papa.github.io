@@ -1203,7 +1203,10 @@ div[id$="-card-container"] p {
             </div>
 
             <div class="form-group" style="margin-top: 10px;">
-                <label class="form-label" id="writerInputLabel">내 이어쓰기 작성</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label class="form-label" id="writerInputLabel" style="margin-bottom: 0;">내 이어쓰기 작성</label>
+                    <span id="writerModalTimer" style="font-size: 0.78rem; color: var(--warning-orange); font-weight: 700;">⏳ 마감: 계산 중...</span>
+                </div>
                 <textarea class="form-control" id="writerInputContent" oninput="handleByteCheckRelay(this, 'writer-byte-count', 'btn-submit-write')" placeholder="이어질 이야기를 작성하세요..."></textarea>
                 <div class="byte-counter-info">
                     <span class="guide-text">1,500~6,000 바이트 사이로 작성해주세요.</span>
@@ -1566,6 +1569,58 @@ function getNationCode(selectElementId) {
         renderCreatorListViewContent();
     }
 }
+
+        // 📖 실제 데이터 기반 '이전까지 스토리 보기' 동적 렌더링
+        async function openPrevChaptersModal() {
+            closeModal('integratedRelayModal');
+            const prevBodyElement = document.getElementById('prevChaptersBody');
+            const activeRelayId = document.getElementById('activeRelayId').value;
+
+            if (prevBodyElement) prevBodyElement.innerText = "⏳ 스토리를 불러오는 중입니다...";
+
+            try {
+                // 실제 백엔드 또는 현재 릴레이 객체에서 누적 회차 데이터 조회
+                const targetRelay = relayMockList.find(r => r.id === activeRelayId);
+                
+                let accumulatedText = "";
+                
+                if (targetRelay && targetRelay.chapters && targetRelay.chapters.length > 0) {
+                    targetRelay.chapters.forEach((c, index) => {
+                        accumulatedText += `제${index + 1}화 : ${c.title || '무제'}\n(작가 : ${c.author || targetRelay.creatorName || '익명'})\n${c.content}\n\n--------------------------------------------------\n\n`;
+                    });
+                } else {
+                    // 데이터가 아직 단일 본문(1화)만 있는 경우 기본 1화 출력
+                    const title = document.getElementById('integratedTitle').innerText;
+                    const desc = document.getElementById('integratedDesc').innerText.replace(/"/g, '');
+                    accumulatedText = `제1화 : ${title}\n(작가 : 릴레이 개설자)\n${desc}\n\n--------------------------------------------------\n\n(※ 후속 회차 집필 및 채택이 진행되면 누적 챕터가 이 양식으로 자동 연결됩니다.)`;
+                }
+
+                prevBodyElement.innerText = accumulatedText;
+            } catch (error) {
+                console.error("이전 스토리 로드 실패:", error);
+                prevBodyElement.innerText = "이전 스토리를 불러오는 중 오류가 발생했습니다.";
+            }
+
+            const modalElem = document.getElementById('relayPrevChaptersModal');
+            if (modalElem) {
+                modalElem.classList.add('z-top');
+                openModal('relayPrevChaptersModal');
+            }
+        }
+
+        // 📥 페이지 로드 시 localStorage에서 임시저장 원고 복원
+        function loadDraftsFromStorage() {
+            try {
+                const saved = localStorage.getItem('deep_blue_relay_drafts');
+                if (saved) {
+                    relayDrafts = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error("임시저장 복원 실패:", e);
+                relayDrafts = [];
+            }
+        }
+        
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
@@ -1579,6 +1634,8 @@ function getNationCode(selectElementId) {
                 console.error("Pi SDK initialization failed:", error);
             }
 
+            loadDraftsFromStorage(); // 👈 이 줄을 여기에 추가! (페이지 켜질 때 임시저장 글 불러오기)
+            
             fetchRelayList();
             fetchCreatorList();
             renderStudioHistoryList();
@@ -1632,14 +1689,29 @@ function getNationCode(selectElementId) {
             const container = document.getElementById('studioIntegratedAccordion');
             if (!container) return;
             let html = '';
+            
             creatorStudioHistory.forEach(item => {
                 const icon = item.type === 'creator' ? '🟢' : '🏛️';
                 html += `
-                    <div class="modal-sub-item" onclick="navigateToActivity('${item.type}', '${item.title}')">
+                    <div class="modal-sub-item">
                         <span>${icon} ${item.title} (${item.status} - 지분 ${item.share})</span>
                     </div>
                 `;
             });
+
+            // 💡 임시저장된 원고 목록 아코디언 하단에 추가
+            if (relayDrafts.length > 0) {
+                html += `<div style="font-size: 0.8rem; font-weight: 700; color: var(--warning-orange); margin: 10px 0 4px 0;">📝 임시저장된 이어쓰기 원고 (${relayDrafts.length}건)</div>`;
+                relayDrafts.forEach((draft, idx) => {
+                    html += `
+                        <div class="modal-sub-item" onclick="loadDraftToWriter(${idx})" style="background: rgba(251,191,36,0.08); border-radius: 6px; margin-bottom: 4px;">
+                            <span>📝 [임시저장] ${draft.subtitle} (${draft.time})</span>
+                            <span style="color:var(--primary-cyan); font-size:0.75rem;">불러오기 ➔</span>
+                        </div>
+                    `;
+                });
+            }
+
             container.innerHTML = html;
         }
 
@@ -1751,6 +1823,15 @@ function getNationCode(selectElementId) {
             const container = document.getElementById('relay-card-container');
             const selectedNation = document.getElementById('relayCountrySelect') ? document.getElementById('relayCountrySelect').value : 'ALL';
             
+            const now = Date.now();
+            
+            // 💡 5일(120시간)이 지난 만료된 릴레이는 자동 필터링(삭제) 처리
+            relayMockList = relayMockList.filter(item => {
+                if (!item.createdAt) item.createdAt = now; // 생성일 없으면 현재로 세팅
+                const timeCheck = calculateRemainingTime(item.createdAt);
+                return !timeCheck.expired;
+            });
+
             let filteredRelayList = relayMockList.filter(item => {
                 if (item.isBlind) return false;
                 if (selectedNation !== 'ALL' && item.nation !== selectedNation) return false;
@@ -1760,7 +1841,7 @@ function getNationCode(selectElementId) {
             });
 
             if (filteredRelayList.length === 0) {
-                container.innerHTML = `<p style="text-align:center; color:var(--text-sub); padding:30px;">해당하는 스토리 릴레이가 없습니다.</p>`;
+                container.innerHTML = `<p style="text-align:center; color:var(--text-sub); padding:30px;">진행 중인 스토리 릴레이가 없습니다.</p>`;
                 return;
             }
 
@@ -1770,13 +1851,15 @@ function getNationCode(selectElementId) {
             filteredRelayList.forEach(item => {
                 const isVote = item.phase === 'vote';
                 const actionText = isVote ? '후보작 열람 & 투표 (무료)' : '이어쓰기 참여 (1.0 Test-Pi)';
+                const timerInfo = calculateRemainingTime(item.createdAt);
+                const participantStatus = item.progress || '1/5 참여중'; // 💡 X/5 참여중 표시
 
                 if (isListMode) {
                     html += `
                         <div class="board-list-row" onclick="handleListCardClick('${item.id}', '${item.title}', '${item.content}', '${item.nation}', 6, false, '${item.phase}')">
                             <span class="board-col-num">${item.nation}</span>
                             <span class="board-col-title">${item.title}</span>
-                            <span class="board-col-meta">⏳ ${item.time}</span>
+                            <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
                             <span class="board-col-action"><button class="board-mini-btn">${actionText}</button></span>
                         </div>
                     `;
@@ -1784,12 +1867,12 @@ function getNationCode(selectElementId) {
                     html += `
                         <div class="card" onclick="handleListCardClick('${item.id}', '${item.title}', '${item.content}', '${item.nation}', 6, false, '${item.phase}')">
                             <div class="tag-group" style="justify-content: space-between; align-items: center;">
-                                <span class="tag tag-relay">✍️ ${item.progress}</span>
+                                <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
                                 <span class="tag tag-meta">${item.format}</span>
                             </div>
                             <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
                             <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
-                            <div class="timer-info">⏳ 마감: ${item.time}</div>
+                            <div class="timer-info" style="color:var(--warning-orange);">⏳ 남은 마감 시간: ${timerInfo.text} (5일 제한)</div>
                             <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}', '${item.title}', '${item.content}', '${item.nation}', 6, false, '${item.phase}')">${actionText}</button>
                         </div>
                     `;
@@ -1951,8 +2034,22 @@ function getNationCode(selectElementId) {
         function openPrevChaptersModal() {
             closeModal('integratedRelayModal');
             const prevBodyElement = document.getElementById('prevChaptersBody');
-            const samplePrevText = `제 1화: 심해의 문이 열리다\n심해 10,000m 바닥에서 정체불명의 신호가 감지되었다...\n\n제 2화: 고대 문자의 해독\n구조물 외벽에 각인된 미지의 문자들이 푸른빛으로 발광하기 시작했다...`;
-            if (prevBodyElement) prevBodyElement.innerText = samplePrevText;
+            
+            // 💡 요청하신 양식에 맞춘 1화, 2화 누적 연결 포맷
+            const formattedStoryText = 
+`제1화 : 심해의 문이 열리다
+(작가 : OceanMaster)
+심해 10,000m 바닥에서 정체불명의 신호가 감지되었다. 인류가 한 번도 마주한 적 없는 거대한 파동이 전 세계 해저 관측망을 흔들기 시작했다.
+
+--------------------------------------------------
+
+제2화 : 고대 문자의 해독
+(작가 : wnalsdud88)
+구조물 외벽에 각인된 미지의 문자들이 푸른빛으로 발광하기 시작했다. 그것은 단순한 기계적 신호가 아니라, 먼 과거 심해 문명이 남긴 경고 메시지였다.`;
+
+            if (prevBodyElement) {
+                prevBodyElement.innerText = formattedStoryText;
+            }
 
             const modalElem = document.getElementById('relayPrevChaptersModal');
             if (modalElem) {
@@ -2098,33 +2195,77 @@ function getNationCode(selectElementId) {
         }
 
         function openWriterModal(title, encodedContent, relayId) {
-    closeModal('integratedRelayModal');
-    document.getElementById('activeRelayId').value = relayId;
-    document.getElementById('writerTitle').innerText = title + ' - 이어쓰기';
-    document.getElementById('writerBody').innerText = decodeURIComponent(encodedContent);
-    
-    // 💡 현재 챕터 번호 판별 (예: 6화 이상일 때만 체크박스 노출 로직 예시)
-    // 릴레이 데이터나 현재 진행 상황에 맞춰 chNum을 산출합니다 (여기서는 예시로 6화 진입 가정 또는 데이터 연동)
-    const currentChNum = 6; // 실제 구현 시 해당 릴레이의 현재 회차 번호 변수 대입
-    const isLong = false;   // 단편/장편 여부
-    
-    const wrapper = document.getElementById('writerFinalCheckboxWrapper');
-    if (wrapper) {
-        if ((!isLong && currentChNum >= 6 && currentChNum <= 10) || (isLong && currentChNum >= 11)) {
-            wrapper.style.display = 'flex';
-        } else {
-            wrapper.style.display = 'none';
-        }
-    }
+            closeModal('integratedRelayModal');
+            document.getElementById('activeRelayId').value = relayId;
+            document.getElementById('writerTitle').innerText = title + ' - 이어쓰기';
+            document.getElementById('writerBody').innerText = decodeURIComponent(encodedContent);
+            
+            // 💡 해당 릴레이의 마감 타이머 계산해서 작업실 우측 상단에 띄우기
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            const timerSpan = document.getElementById('writerModalTimer');
+            if (targetRelay && timerSpan) {
+                const timeLeft = calculateRemainingTime(targetRelay.createdAt || Date.now());
+                timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
+            }
 
-    openModal('writerModal');
-}
+            const currentChNum = 6; 
+            const isLong = false;   
+            const wrapper = document.getElementById('writerFinalCheckboxWrapper');
+            if (wrapper) {
+                if ((!isLong && currentChNum >= 6 && currentChNum <= 10) || (isLong && currentChNum >= 11)) {
+                    wrapper.style.display = 'flex';
+                } else {
+                    wrapper.style.display = 'none';
+                }
+            }
+
+            openModal('writerModal');
+        }
+
+        let relayDrafts = []; // 📝 임시저장 원고 보관함
 
         function saveRelayDraft() {
-            alert("💾 원고가 임시저장되었습니다.");
-            closeModal('writerModal');
-        }
+            const relayId = document.getElementById('activeRelayId').value;
+            const subtitle = document.getElementById('writerSubtitleInput').value;
+            const content = document.getElementById('writerInputContent').value;
+            
+            if (!content.trim()) {
+                alert("저장할 본문 내용이 없습니다.");
+                return;
+            }
 
+            relayDrafts.push({
+                relayId,
+                subtitle: subtitle || '무제 소제목',
+                content,
+                time: new Date().toLocaleString()
+            });
+
+            // 💡 로컬스토리지에 즉시 영구 반영
+            localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
+
+            alert("💾 원고가 영구 임시저장되었습니다.\n[크리에이터 스튜디오]에서 언제든 불러올 수 있습니다.");
+            closeModal('writerModal');
+            renderStudioHistoryList();
+        }
+        
+        // 📝 임시저장된 원고를 다시 작업실로 불러오기
+        function loadDraftToWriter(draftIdx) {
+            const draft = relayDrafts[draftIdx];
+            if (!draft) return;
+
+            closeModal('creatorStudioModal');
+            document.getElementById('activeRelayId').value = draft.relayId;
+            document.getElementById('writerSubtitleInput').value = draft.subtitle;
+            document.getElementById('writerInputContent').value = draft.content;
+            
+            const textarea = document.getElementById('writerInputContent');
+            if (textarea) handleByteCheckRelay(textarea, 'writer-byte-count', 'btn-submit-write');
+
+            openModal('writerModal');
+            alert("📝 임시저장된 원고를 불러왔습니다.");
+        }
+        
         function submitWriterContent() {
             alert("🎉 원고가 성공적으로 제출되었습니다!");
             closeModal('writerModal');
@@ -2405,6 +2546,29 @@ function getNationCode(selectElementId) {
         }
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // ⏳ 5일(120시간) 마감 계산 및 타이머 포맷팅 함수
+        function calculateRemainingTime(createdAtTimestamp) {
+            const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+            const expireTime = createdAtTimestamp + FIVE_DAYS_MS;
+            const now = Date.now();
+            const diff = expireTime - now;
+
+            if (diff <= 0) {
+                return { expired: true, text: "마감됨 (자동 삭제 대상)" };
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            return {
+                expired: false,
+                text: `${days}일 ${hours}시간 ${minutes}분 남음`
+            };
+        }
+
+        
     </script>
 </body>
 </html>
