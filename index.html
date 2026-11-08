@@ -1265,6 +1265,7 @@ div[id$="-card-container"] p {
         </div>
     </div>
 
+    <!-- 모달: 오리지널 다음 회차 작성 -->
     <div class="modal-overlay" id="creatorContinueModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1275,10 +1276,13 @@ div[id$="-card-container"] p {
                 <label class="form-label">Chapter Subtitle (회차 소제목)</label>
                 <input type="text" class="form-control" id="inputCreatorContinueSubtitle" placeholder="회차 소제목을 입력하세요...">
             </div>
+            
+            <!-- 💡 완결 체크박스 영역 (조건에 따라 display가 제어됨) -->
             <div class="form-group" id="creatorFinalCheckboxWrapper" style="display: none; align-items: center; gap: 8px; background: rgba(56,189,248,0.08); padding: 10px; border-radius: 10px; margin-top: 10px;">
-    <input type="checkbox" id="checkFinalChapterCreator" style="width: 18px; height: 18px; cursor: pointer;">
-    <label for="checkFinalChapterCreator" style="font-size: 0.82rem; color: var(--warning-orange); font-weight: 700; cursor: pointer;">🏁 이 회차를 마지막 회차(완결)로 등록하기</label>
-</div>
+                <input type="checkbox" id="checkFinalChapterCreator" style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="checkFinalChapterCreator" style="font-size: 0.82rem; color: var(--warning-orange); font-weight: 700; cursor: pointer;">🏁 이 회차를 마지막 회차(완결)로 등록하기</label>
+            </div>
+
             <div class="form-group">
                 <label class="form-label">Content (회차 본문 - 글자 수 제한 무제한)</label>
                 <textarea class="form-control" id="inputCreatorContinueContent" style="min-height: 180px;" placeholder="자유롭게 이야기를 이어서 작성하세요..." oninput="handleByteCheckFree(this, 'creator-continue-byte', 'btn-submit-creator-continue')"></textarea>
