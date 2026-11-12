@@ -20,6 +20,23 @@
             --gold-star: #f59e0b;
         }
 
+        /* 💡 모든 모달 안의 버튼과 상호작용 요소가 클릭을 절대 놓치지 않도록 강제 설정 */
+    .modal-content button, 
+    .modal-content .page-btn, 
+    .modal-content .board-mini-btn, 
+    .modal-content select, 
+    .modal-content input {
+        position: relative;
+        z-index: 10550 !important;
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    /* 모달 오버레이 자체의 터치 간섭 방지 */
+    .modal-overlay {
+        pointer-events: auto;
+    }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -483,6 +500,7 @@ div[id$="-card-container"] p {
             <li class="drawer-menu-item" onclick="openNavModal('subscriptionActivityModal')"><span>📌</span> 나의 구독 활동</li>
             <li class="drawer-menu-item" onclick="openNavModal('noticeModal')"><span>📢</span> 공지사항</li>
             <li class="drawer-menu-item" onclick="openNavModal('contactModal')"><span>📧</span> Contact Us</li>
+            <li class="drawer-menu-item" onclick="openNavModal('freeBoardModal')"><span>💬</span> 자유게시판</li>
             <li class="drawer-menu-item" onclick="openNavModal('termsModal')"><span>📜</span> 서비스 이용약관</li>
             <li class="drawer-menu-item" onclick="openNavModal('privacyModal')"><span>🔒</span> 개인정보 처리방침</li>
             <li class="drawer-menu-item" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 10px; color: var(--warning-orange);" onclick="openAdminDashboardModal()"><span>⚙️</span> 관리자 대시보드</li>
@@ -988,6 +1006,35 @@ div[id$="-card-container"] p {
         </div>
     </div>
 
+    <!-- 💬 자유게시판 모달 -->
+<div class="modal-overlay" id="freeBoardModal">
+    <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-header">
+            <div class="modal-title">💬 파이오니어 자유게시판</div>
+            <button class="close-btn" onclick="closeModal('freeBoardModal')">✕</button>
+        </div>
+        <div style="font-size: 0.82rem; color: var(--text-sub); margin-bottom: 12px;">
+            작가님들과 독자님들이 자유롭게 소통하고 의견을 나누는 공간입니다.
+        </div>
+
+        <!-- 글 작성 영역 -->
+        <div style="background: rgba(56,189,248,0.06); border:1px solid var(--border-glow); padding: 12px; border-radius: 12px; margin-bottom: 14px;">
+            <div class="form-group" style="margin-bottom: 8px;">
+                <input type="text" class="form-control" id="inputFreeTitle" placeholder="게시글 제목을 입력하세요...">
+            </div>
+            <div class="form-group" style="margin-bottom: 8px;">
+                <textarea class="form-control" id="inputFreeContent" style="min-height: 70px;" placeholder="내용을 입력하세요..."></textarea>
+            </div>
+            <button class="btn btn-primary" style="margin:0; padding: 8px;" onclick="submitFreeBoardPost()">게시글 등록</button>
+        </div>
+
+        <!-- 게시글 목록 리스트 -->
+        <div id="freeBoardListContainer" style="max-height: 260px; overflow-y: auto;"></div>
+
+        <button class="btn btn-outline" style="margin-top: 14px;" onclick="closeModal('freeBoardModal')">닫기</button>
+    </div>
+</div>
+
     <div class="modal-overlay" id="termsModal">
         <div class="modal-content" style="max-width: 500px; height: 75vh; display: flex; flex-direction: column;">
             <div class="modal-header" style="flex-shrink: 0; margin-bottom: 12px;">
@@ -1450,6 +1497,7 @@ function getNationCode(selectElementId) {
                 console.warn("⚠️ 백엔드 서버에서 릴레이 목록을 가져오지 못해 임시 데이터를 사용합니다.", error);
             }
             renderRelayListContent();
+            updateRelayHubBadges();
         }
 
         async function createNewRelayCard() {
@@ -1579,20 +1627,18 @@ function getNationCode(selectElementId) {
             if (prevBodyElement) prevBodyElement.innerText = "⏳ 스토리를 불러오는 중입니다...";
 
             try {
-                // 실제 백엔드 또는 현재 릴레이 객체에서 누적 회차 데이터 조회
                 const targetRelay = relayMockList.find(r => r.id === activeRelayId);
-                
                 let accumulatedText = "";
                 
                 if (targetRelay && targetRelay.chapters && targetRelay.chapters.length > 0) {
                     targetRelay.chapters.forEach((c, index) => {
                         accumulatedText += `제${index + 1}화 : ${c.title || '무제'}\n(작가 : ${c.author || targetRelay.creatorName || '익명'})\n${c.content}\n\n--------------------------------------------------\n\n`;
                     });
+                } else if (targetRelay) {
+                    // 챕터 배열이 따로 없고 최초 1화 본문만 있는 경우 실제 데이터 매핑
+                    accumulatedText += `제1화 : ${targetRelay.title}\n(작가 : ${targetRelay.creatorName || 'wnalsdud88'})\n${targetRelay.content || '본문 내용이 없습니다.'}\n\n--------------------------------------------------\n\n(※ 후속 회차가 채택되면 이 양식에 맞춰 누적 챕터가 연이어 표시됩니다.)`;
                 } else {
-                    // 데이터가 아직 단일 본문(1화)만 있는 경우 기본 1화 출력
-                    const title = document.getElementById('integratedTitle').innerText;
-                    const desc = document.getElementById('integratedDesc').innerText.replace(/"/g, '');
-                    accumulatedText = `제1화 : ${title}\n(작가 : 릴레이 개설자)\n${desc}\n\n--------------------------------------------------\n\n(※ 후속 회차 집필 및 채택이 진행되면 누적 챕터가 이 양식으로 자동 연결됩니다.)`;
+                    accumulatedText = "해당 릴레이의 스토리 데이터를 찾을 수 없습니다.";
                 }
 
                 prevBodyElement.innerText = accumulatedText;
@@ -1607,7 +1653,6 @@ function getNationCode(selectElementId) {
                 openModal('relayPrevChaptersModal');
             }
         }
-
         // 📥 페이지 로드 시 localStorage에서 임시저장 원고 복원
         function loadDraftsFromStorage() {
             try {
@@ -1670,7 +1715,14 @@ function getNationCode(selectElementId) {
             document.getElementById('sideDrawer').classList.remove('active');
         }
 
-        function openNavModal(modalId) { closeDrawer(); openModal(modalId); }
+        function openNavModal(modalId) { 
+    closeDrawer(); 
+    if (modalId === 'freeBoardModal') {
+        renderFreeBoardList(); // 자유게시판을 열 때 게시글 목록을 먼저 그려줌
+    }
+    openModal(modalId); 
+}
+        
         function openAlarmModal() { openModal('alarmModal'); }
 
         function toggleModalAccordion(accordionId) {
@@ -1747,6 +1799,7 @@ function getNationCode(selectElementId) {
                 document.getElementById('relay-section').style.display = 'block';
                 document.getElementById('tabRelayBtn').classList.add('active');
                 backToRelayHub(); // 허브 화면 강제 노출 & 목록 숨김
+                updateRelayHubBadges();
             } else if (tabName === 'creator') {
                 document.body.classList.remove('landing-mode');
                 document.getElementById('creator-section').style.display = 'block';
@@ -1772,6 +1825,7 @@ function getNationCode(selectElementId) {
             document.getElementById('relayListViewContainer').style.display = 'none';
             document.getElementById('relayHubView').style.display = 'flex';
             document.getElementById('relay-card-container').innerHTML = '';
+            updateRelayHubBadges();
         }
 
         function showCreatorListView() {
@@ -2200,7 +2254,7 @@ function getNationCode(selectElementId) {
             document.getElementById('writerTitle').innerText = title + ' - 이어쓰기';
             document.getElementById('writerBody').innerText = decodeURIComponent(encodedContent);
             
-            // 💡 해당 릴레이의 마감 타이머 계산해서 작업실 우측 상단에 띄우기
+            // 해당 릴레이의 마감 타이머 계산
             const targetRelay = relayMockList.find(r => r.id === relayId);
             const timerSpan = document.getElementById('writerModalTimer');
             if (targetRelay && timerSpan) {
@@ -2208,16 +2262,26 @@ function getNationCode(selectElementId) {
                 timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
             }
 
-            const currentChNum = 6; 
-            const isLong = false;   
+            // 💡 해당 릴레이의 현재 회차 번호 및 포맷(단편/장편) 판별
+            // (실제 데이터에 회차 번호 필드가 있다면 그것을 쓰고, 없으면 기본값으로 판별)
+            const currentChNum = targetRelay && targetRelay.currentCh ? targetRelay.currentCh : 2; // 예시로 현재 2화 혹은 동적 할당된 회차
+            const formatStr = targetRelay && targetRelay.format ? targetRelay.format : '단편';
+            const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
+
             const wrapper = document.getElementById('writerFinalCheckboxWrapper');
             if (wrapper) {
-                if ((!isLong && currentChNum >= 6 && currentChNum <= 10) || (isLong && currentChNum >= 11)) {
+                // 📌 단편은 6~10화 사이, 장편은 11화 이상일 때만 완결 제안 체크박스 노출!
+                if ((!isLongFormat && currentChNum >= 6 && currentChNum <= 10) || (isLongFormat && currentChNum >= 11)) {
                     wrapper.style.display = 'flex';
                 } else {
                     wrapper.style.display = 'none';
+                    const chkBox = document.getElementById('checkFinalChapterWrite');
+                    if (chkBox) chkBox.checked = false;
                 }
             }
+
+            // 임시저장 원고 불러오기 연동
+            checkAndLoadDraftForWriter(relayId);
 
             openModal('writerModal');
         }
@@ -2568,6 +2632,74 @@ function getNationCode(selectElementId) {
             };
         }
 
+        function updateRelayHubBadges() {
+            const writeList = relayMockList.filter(item => !item.isBlind && item.phase === 'write');
+            const voteList = relayMockList.filter(item => !item.isBlind && item.phase === 'vote');
+
+            const writeBadge = document.getElementById('relayWriteCountBadge');
+            const voteBadge = document.getElementById('relayVoteCountBadge');
+
+            if (writeBadge) writeBadge.innerText = `${writeList.length}건`;
+            if (voteBadge) voteBadge.innerText = `${voteList.length}건`;
+        }
+
+       // 자유게시판 자바스크립트 함수 
+        let freeBoardPosts = [
+        { id: 1, title: '안녕하세요! 첫 릴레이 개설했습니다.', author: 'wnalsdud88', date: '2026-04-05', views: 12, content: '다들 많은 참여 부탁드려요!' }
+    ];
+
+    function renderFreeBoardList() {
+        const container = document.getElementById('freeBoardListContainer');
+        if (!container) return;
+
+        if (freeBoardPosts.length === 0) {
+            container.innerHTML = `<p style="text-align:center; color:var(--text-sub); padding:20px;">등록된 게시글이 없습니다.</p>`;
+            return;
+        }
+
+        let html = '';
+        freeBoardPosts.forEach(post => {
+            html += `
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 0.82rem;">
+                    <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary-cyan); margin-bottom: 4px;">
+                        <span>${post.title}</span>
+                        <span style="font-size: 0.72rem; color: var(--text-sub);">${post.date}</span>
+                    </div>
+                    <div style="color: var(--text-bright); margin-bottom: 6px; line-height: 1.4;">${post.content}</div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-sub);">
+                        <span>작성자: ${post.author}</span>
+                        <span>조회수: ${post.views}</span>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    function submitFreeBoardPost() {
+        const title = document.getElementById('inputFreeTitle').value.trim();
+        const content = document.getElementById('inputFreeContent').value.trim();
+
+        if (!title || !content) {
+            alert("제목과 내용을 모두 입력해주세요.");
+            return;
+        }
+
+        freeBoardPosts.unshift({
+            id: Date.now(),
+            title,
+            author: currentUserId || 'Pioneer',
+            date: new Date().toISOString().split('T')[0],
+            views: 1,
+            content
+        });
+
+        document.getElementById('inputFreeTitle').value = '';
+        document.getElementById('inputFreeContent').value = '';
+
+        alert("💬 자유게시판에 글이 등록되었습니다!");
+        renderFreeBoardList();
+    }
         
     </script>
 </body>
