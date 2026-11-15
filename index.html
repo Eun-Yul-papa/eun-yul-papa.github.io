@@ -1771,9 +1771,11 @@ function getNationCode(selectElementId) {
             
             alert(`🎉 '${title}' 스토리 릴레이가 성공적으로 개설되었습니다!`);
             
-            // 5. 즉시 릴레이 목록 화면으로 이동하여 내가 만든 글 확인
-            showRelayListView('write');
+            if (typeof renderRelayListContent === 'function') {
+                renderRelayListContent();
+            }
         }
+        
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
