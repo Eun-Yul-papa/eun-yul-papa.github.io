@@ -2300,22 +2300,31 @@ function getNationCode(selectElementId) {
         // 📖 이전까지 스토리 보기 모달 오픈 함수
         function openPrevChaptersModal() {
             closeModal('integratedRelayModal');
+            
+            // 💡 현재 선택된 릴레이 ID 가져오기 (input hidden 등에 저장된 값 활용)
+            const activeIdInput = document.getElementById('activeRelayId');
+            const relayId = activeIdInput ? activeIdInput.value : null;
+            
+            const targetRelay = relayMockList.find(r => r.id === relayId);
             const prevBodyElement = document.getElementById('prevChaptersBody');
             
-            // 💡 요청하신 양식에 맞춘 1화, 2화 누적 연결 포맷
-            const formattedStoryText = 
-`제1화 : 심해의 문이 열리다
-(작가 : OceanMaster)
-심해 10,000m 바닥에서 정체불명의 신호가 감지되었다. 인류가 한 번도 마주한 적 없는 거대한 파동이 전 세계 해저 관측망을 흔들기 시작했다.
-
---------------------------------------------------
-
-제2화 : 고대 문자의 해독
-(작가 : wnalsdud88)
-구조물 외벽에 각인된 미지의 문자들이 푸른빛으로 발광하기 시작했다. 그것은 단순한 기계적 신호가 아니라, 먼 과거 심해 문명이 남긴 경고 메시지였다.`;
-
             if (prevBodyElement) {
-                prevBodyElement.innerText = formattedStoryText;
+                if (targetRelay && targetRelay.chapters && targetRelay.chapters.length > 0) {
+                    // 💡 실제 릴레이에 작성된 chapters 데이터를 동적으로 조립
+                    let dynamicStoryText = '';
+                    targetRelay.chapters.forEach(ch => {
+                        dynamicStoryText += `제${ch.ch}화 : ${ch.title}\n`;
+                        dynamicStoryText += `(작가 : ${ch.author || targetRelay.creatorName})\n`;
+                        dynamicStoryText += `${ch.content}\n\n--------------------------------------------------\n\n`;
+                    });
+                    prevBodyElement.innerText = dynamicStoryText.trim();
+                } else if (targetRelay && targetRelay.content) {
+                    // chapters가 없지만 content가 있는 경우
+                    prevBodyElement.innerText = targetRelay.content;
+                } else {
+                    // 데이터가 없을 때의 기본 문구
+                    prevBodyElement.innerText = "아직 작성된 이전 회차 내용이 없습니다.";
+                }
             }
 
             const modalElem = document.getElementById('relayPrevChaptersModal');
@@ -2461,8 +2470,8 @@ function getNationCode(selectElementId) {
             document.getElementById('integratedTitle').innerText = targetRelay.title;
             document.getElementById('integratedDesc').innerText = `"${targetRelay.content}"`;
             
-            // 💡 [핵심 추가] '이전까지 스토리 보기' 영역에 진짜 chapters 데이터 동적 렌더링
-            const storyBodyContainer = document.getElementById('integratedStoryBody'); // 모달 안의 본문 컨테이너 ID
+            // 💡 '이전까지 스토리 보기' 영역에 진짜 chapters 데이터 동적 렌더링
+            const storyBodyContainer = document.getElementById('integratedStoryBody');
             if (storyBodyContainer) {
                 if (targetRelay.chapters && targetRelay.chapters.length > 0) {
                     let chaptersHtml = '';
