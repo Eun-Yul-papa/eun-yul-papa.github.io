@@ -1469,6 +1469,15 @@ function getNationCode(selectElementId) {
             // 선택한 언어 코드 확인용 피드백 (필요시 제거 가능)
             console.log("선택된 언어 코드로 전환:", langCode);
         }
+
+        // 오리지널 허브 카운트 배지 실시간 갱신
+        function updateCreatorHubBadges() {
+            const activeCreators = creatorMockList.filter(item => !item.isBlind);
+            const badge = document.getElementById('creatorListCountBadge');
+            if (badge) {
+                badge.innerText = `${activeCreators.length}건`;
+            }
+        }
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
         // ==========================================
@@ -1500,66 +1509,53 @@ function getNationCode(selectElementId) {
             updateRelayHubBadges();
         }
 
-        async function createNewRelayCard() {
-    const title = document.getElementById('inputTitle').value || "무제 스토리";
-    const content = document.getElementById('storyContent').value;
-    const format = document.getElementById('selectFormat').value;
-    // 💡 현재 상단 드롭다운에서 선택된 언어/국가 코드 가져오기 (기본값 ID, US, KR 등)
-    const selectedLang = document.getElementById('userLangSelect') ? document.getElementById('userLangSelect').value.toUpperCase() : 'KR';
-    const nationCode = getNationCode('userLangSelect');
+        async function createNewCreatorCard() {
+            const title = document.getElementById('inputCreatorTitle').value.trim() || "무제 작품";
+            const subtitle = document.getElementById('inputCreatorSubtitle').value.trim() || "제 1화";
+            const content = document.getElementById('creatorContent').value;
+            const format = document.getElementById('selectCreatorFormat').value;
+            const lengthType = document.getElementById('selectCreatorLength').value;
+            const nationCode = getNationCode('userLangSelect');
 
-    try {
-        const response = await fetch('http://localhost:5000/api/relay/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, content, nation: nationCode, format })
-        });
+            const newId = 'c_' + Date.now();
+            const newCreatorObj = {
+                id: newId,
+                title,
+                format: `${format} / ${lengthType}`,
+                nation: nationCode,
+                currentCh: 1,
+                author: currentUserId,
+                desc: content,
+                isBlind: false,
+                chapters: [
+                    { ch: 1, title: subtitle, author: currentUserId, content: content }
+                ]
+            };
 
-        const result = await response.json();
+            try {
+                await fetch('http://localhost:5000/api/creator/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, desc: content, nation: nationCode })
+                });
+            } catch (error) {
+                console.warn("로컬 모드로 오리지널 시리즈를 등록합니다.");
+            }
 
-        if (result.success) {
-            relayMockList.unshift({ 
-                id: result.data?.relayId || ('card_' + Date.now()), 
-                title, 
-                nation: nationCode, 
-                format, 
-                progress: '글쓰기 진행중(1/5)', 
-                phase: 'write', 
-                time: '05일 00시간 남음', 
-                content, 
-                creatorName: currentUserId, 
-                isBlind: false 
-            });
+            creatorMockList.unshift(newCreatorObj);
+            creatorStudioHistory.unshift({ id: newId, title, type: 'creator', status: '연재중', share: '95%' });
+            
+            updateCreatorHubBadges(); // 💡 허브 배지 숫자 즉시 동기화!
+            renderStudioHistoryList();
 
-            closeModal('createModal');
-            document.getElementById('inputTitle').value = '';
-            document.getElementById('storyContent').value = '';
-            alert(`🎉 '${title}' 스토리 릴레이가 등록되었습니다!`);
-            renderRelayListContent();
-        } else {
-            alert("개설 실패: " + result.message);
+            closeModal('createCreatorModal');
+            document.getElementById('inputCreatorTitle').value = '';
+            document.getElementById('inputCreatorSubtitle').value = '';
+            document.getElementById('creatorContent').value = '';
+            
+            alert(`🎉 '${title}' 오리지널 시리즈가 연재 등록되었습니다!`);
+            renderCreatorListViewContent();
         }
-    } catch (error) {
-        // 백엔드 연결 전 로컬 테스트용
-        relayMockList.unshift({ 
-            id: 'card_' + Date.now(), 
-            title, 
-            nation: nationCode, 
-            format, 
-            progress: '글쓰기 진행중(1/5)', 
-            phase: 'write', 
-            time: '05일 00시간 남음', 
-            content, 
-            creatorName: currentUserId, 
-            isBlind: false 
-        });
-        closeModal('createModal');
-        document.getElementById('inputTitle').value = '';
-        document.getElementById('storyContent').value = '';
-        alert(`🎉 '${title}' 스토리 릴레이가 개설되었습니다!`);
-        renderRelayListContent();
-    }
-}
 
         async function fetchCreatorList() {
             try {
@@ -1903,35 +1899,35 @@ function getNationCode(selectElementId) {
             const isListMode = container.classList.contains('board-list-container');
 
             filteredRelayList.forEach(item => {
-                const isVote = item.phase === 'vote';
-                const actionText = isVote ? '후보작 열람 & 투표 (무료)' : '이어쓰기 참여 (1.0 Test-Pi)';
-                const timerInfo = calculateRemainingTime(item.createdAt);
-                const participantStatus = item.progress || '1/5 참여중'; // 💡 X/5 참여중 표시
+    const isVote = item.phase === 'vote';
+    const actionText = isVote ? '후보작 열람 & 투표 (무료)' : '이어쓰기 참여 (1.0 Test-Pi)';
+    const timerInfo = calculateRemainingTime(item.createdAt);
+    const participantStatus = item.progress || '1/5 참여중';
 
-                if (isListMode) {
-                    html += `
-                        <div class="board-list-row" onclick="handleListCardClick('${item.id}', '${item.title}', '${item.content}', '${item.nation}', 6, false, '${item.phase}')">
-                            <span class="board-col-num">${item.nation}</span>
-                            <span class="board-col-title">${item.title}</span>
-                            <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
-                            <span class="board-col-action"><button class="board-mini-btn">${actionText}</button></span>
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <div class="card" onclick="handleListCardClick('${item.id}', '${item.title}', '${item.content}', '${item.nation}', 6, false, '${item.phase}')">
-                            <div class="tag-group" style="justify-content: space-between; align-items: center;">
-                                <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
-                                <span class="tag tag-meta">${item.format}</span>
-                            </div>
-                            <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
-                            <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
-                            <div class="timer-info" style="color:var(--warning-orange);">⏳ 남은 마감 시간: ${timerInfo.text} (5일 제한)</div>
-                            <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}', '${item.title}', '${item.content}', '${item.nation}', 6, false, '${item.phase}')">${actionText}</button>
-                        </div>
-                    `;
-                }
-            });
+    if (isListMode) {
+        html += `
+            <div class="board-list-row" onclick="handleListCardClick('${item.id}')">
+                <span class="board-col-num">${item.nation}</span>
+                <span class="board-col-title">${item.title}</span>
+                <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
+                <span class="board-col-action"><button class="board-mini-btn">${actionText}</button></span>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="card" onclick="handleListCardClick('${item.id}')">
+                <div class="tag-group" style="justify-content: space-between; align-items: center;">
+                    <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
+                    <span class="tag tag-meta">${item.format}</span>
+                </div>
+                <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
+                <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
+                <div class="timer-info" style="color:var(--warning-orange);">⏳ 남은 마감 시간: ${timerInfo.text} (5일 제한)</div>
+                <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">${actionText}</button>
+            </div>
+        `;
+    }
+});
             container.innerHTML = html;
         }
 
@@ -2235,43 +2231,62 @@ function getNationCode(selectElementId) {
             }
         }
 
-        function handleListCardClick(cardId, title, content, flag, chapterNum, isLong, phase = 'write') {
-            document.getElementById('integratedTitle').innerText = title;
-            document.getElementById('integratedDesc').innerText = `"${content}"`;
-            const btnContainer = document.getElementById('integratedButtonContainer');
+        function handleListCardClick(relayId) {
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) {
+                alert("해당 스토리 데이터를 찾을 수 없습니다.");
+                return;
+            }
+
+            // 💡 상세 모달 열 때 activeRelayId를 미리 정확히 세팅! ('이전까지 스토리 보기' 연동용)
+            document.getElementById('activeRelayId').value = targetRelay.id;
+            document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
+            document.getElementById('integratedTitle').innerText = targetRelay.title;
+            document.getElementById('integratedDesc').innerText = `"${targetRelay.content}"`;
             
-            if (phase === 'vote') {
-                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange);" onclick="openReadVoteModal('${title}', '${cardId}')">🗳️ 후보작 열람 & 투표하기</button>`;
+            const btnContainer = document.getElementById('integratedButtonContainer');
+            if (targetRelay.phase === 'vote') {
+                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange);" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
             } else {
-                btnContainer.innerHTML = `<button class="btn btn-primary" onclick="openWriterModal('${title}', '${encodeURIComponent(content)}', '${cardId}')">✍️ 이어쓰기 참여하기 (1.0 Test-Pi)</button>`;
+                btnContainer.innerHTML = `<button class="btn btn-primary" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 Test-Pi)</button>`;
             }
             openModal('integratedRelayModal');
         }
-
-        function openWriterModal(title, encodedContent, relayId) {
+        
+        function openWriterModal(relayId) {
             closeModal('integratedRelayModal');
-            document.getElementById('activeRelayId').value = relayId;
-            document.getElementById('writerTitle').innerText = title + ' - 이어쓰기';
-            document.getElementById('writerBody').innerText = decodeURIComponent(encodedContent);
-            
-            // 해당 릴레이의 마감 타이머 계산
             const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) {
+                alert("릴레이 정보를 불러오지 못했습니다.");
+                return;
+            }
+
+            document.getElementById('activeRelayId').value = targetRelay.id;
+            document.getElementById('writerFlag').innerText = targetRelay.nation || 'KR';
+            document.getElementById('writerTitle').innerText = `${targetRelay.title} - 이어쓰기`;
+            
+            // 직전 회차 본문 보여주기
+            const lastChapter = (targetRelay.chapters && targetRelay.chapters.length > 0) 
+                ? targetRelay.chapters[targetRelay.chapters.length - 1] 
+                : { ch: 1, title: targetRelay.title, content: targetRelay.content };
+            document.getElementById('writerBody').innerText = `[제 ${lastChapter.ch}화 : ${lastChapter.title}]\n\n${lastChapter.content}`;
+
+            // 마감 타이머 표시
             const timerSpan = document.getElementById('writerModalTimer');
-            if (targetRelay && timerSpan) {
+            if (timerSpan) {
                 const timeLeft = calculateRemainingTime(targetRelay.createdAt || Date.now());
                 timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
             }
 
-            // 💡 해당 릴레이의 현재 회차 번호 및 포맷(단편/장편) 판별
-            // (실제 데이터에 회차 번호 필드가 있다면 그것을 쓰고, 없으면 기본값으로 판별)
-            const currentChNum = targetRelay && targetRelay.currentCh ? targetRelay.currentCh : 2; // 예시로 현재 2화 혹은 동적 할당된 회차
-            const formatStr = targetRelay && targetRelay.format ? targetRelay.format : '단편';
+            // 💡 다음 작성할 회차 번호 계산 (기존 1화까지 있으면 이제 2화 작성 차례)
+            const nextChNum = (targetRelay.chapters ? targetRelay.chapters.length : 1) + 1;
+            const formatStr = targetRelay.format || '';
             const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
 
             const wrapper = document.getElementById('writerFinalCheckboxWrapper');
             if (wrapper) {
-                // 📌 단편은 6~10화 사이, 장편은 11화 이상일 때만 완결 제안 체크박스 노출!
-                if ((!isLongFormat && currentChNum >= 6 && currentChNum <= 10) || (isLongFormat && currentChNum >= 11)) {
+                // 단편: 6~10화 작성 시 노출 / 장편: 11화 이상 작성 시 노출
+                if ((!isLongFormat && nextChNum >= 6 && nextChNum <= 10) || (isLongFormat && nextChNum >= 11)) {
                     wrapper.style.display = 'flex';
                 } else {
                     wrapper.style.display = 'none';
@@ -2280,12 +2295,15 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 임시저장 원고 불러오기 연동
-            checkAndLoadDraftForWriter(relayId);
+            // 해당 relayId 전용 임시저장 원고 불러오기
+            checkAndLoadDraftForWriter(targetRelay.id);
+
+            // 바이트 카운터 초기화/갱신
+            const textarea = document.getElementById('writerInputContent');
+            if (textarea) handleByteCheckRelay(textarea, 'writer-byte-count', 'btn-submit-write');
 
             openModal('writerModal');
         }
-
         let relayDrafts = []; // 📝 임시저장 원고 보관함
 
         function saveRelayDraft() {
@@ -2331,8 +2349,34 @@ function getNationCode(selectElementId) {
         }
         
         function submitWriterContent() {
-            alert("🎉 원고가 성공적으로 제출되었습니다!");
+            const relayId = document.getElementById('activeRelayId').value;
+            const subtitle = document.getElementById('writerSubtitleInput').value.trim() || "이어지는 이야기";
+            const content = document.getElementById('writerInputContent').value.trim();
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+
+            if (targetRelay && content) {
+                if (!targetRelay.chapters) {
+                    targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
+                }
+                const nextCh = targetRelay.chapters.length + 1;
+                targetRelay.chapters.push({
+                    ch: nextCh,
+                    title: subtitle,
+                    author: currentUserId,
+                    content: content
+                });
+                targetRelay.currentCh = nextCh;
+                targetRelay.content = content; // 최신 본문 미리보기 갱신
+
+                // 제출 완료된 임시저장 원고 삭제
+                relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
+                localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
+                renderStudioHistoryList();
+            }
+
+            alert("🎉 이어쓰기 원고가 성공적으로 제출되어 누적 회차에 반영되었습니다!");
             closeModal('writerModal');
+            renderRelayListContent();
         }
 
         function openCreatorReadModal(title, totalCh, author) {
@@ -2342,56 +2386,51 @@ function getNationCode(selectElementId) {
             const isMyWork = (author === currentUserId);
             const targetCreator = creatorMockList.find(item => item.title === title);
             
-            // 💡 회차 데이터 가져오기 (만약 챕터 배열이 없으면 기본 1화만 있는 것으로 처리)
-            let chapters = (targetCreator && targetCreator.chapters) ? targetCreator.chapters : [
-                { ch: 1, title: '제 1화', author: author, status: 'completed', price: '무료 공개' }
-            ];
+            // 💡 네가 작성했던 원본 안전망 유지 + 실제 chapters 데이터 우선 연동
+            let chapters = (targetCreator && targetCreator.chapters && targetCreator.chapters.length > 0) 
+                ? targetCreator.chapters 
+                : [
+                    { ch: 1, title: '제 1화', author: author, content: targetCreator ? targetCreator.desc : '' }
+                ];
 
-            // 💡 독자 입장에서 2화 이상이 아직 없다면 '2화 집필 중...' 가상 항목 추가 연출
             let html = '';
 
-            // 1화는 무조건 고정 무료 공개
-            html += `
-                <div class="chapter-list-item">
-                    <div>
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 1화</div>
-                        <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${author} (무료 공개)</div>
-                    </div>
-                    <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px;" onclick="readCreatorChapter('${title}', 1)">📖 1화 읽기</button>
-                </div>
-            `;
+            // 💡 등록된 실제 chapters 배열을 순차적으로 렌더링 (기존 뼈대 완벽 보존)
+            chapters.forEach(c => {
+                const isFirst = (c.ch === 1);
+                const priceText = isFirst ? '무료 공개' : '유료 연재 (0.1 Test-Pi)';
+                const btnLabel = isFirst ? '📖 1화 읽기' : `📖 ${c.ch}화 읽기 (0.1 Test-Pi)`;
+                const btnStyle = isFirst ? '' : 'border-color: var(--primary-cyan); color: var(--primary-cyan);';
 
-            // 만약 총 회차가 1화뿐이라면 (독자 시점)
-            if (chapters.length <= 1 && !isMyWork) {
                 html += `
-                    <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
+                    <div class="chapter-list-item">
                         <div>
-                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 2화</div>
-                            <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ 다음 회차 집필 중...</div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${c.ch}화 : ${c.title || ''}</div>
+                            <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${c.author || author} (${priceText})</div>
                         </div>
-                        <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
+                        <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px; ${btnStyle}" onclick="readCreatorChapter('${title}', ${c.ch})">${btnLabel}</button>
                     </div>
                 `;
-            } else {
-                // 2화 이상 존재할 경우 순차적으로 목록 생성
-                for (let i = 2; i <= (targetCreator ? (targetCreator.currentCh || 2) : 2); i++) {
-                    html += `
-                        <div class="chapter-list-item">
-                            <div>
-                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${i}화</div>
-                                <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${author} (유료 연재)</div>
-                            </div>
-                            <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px; border-color: var(--primary-cyan); color: var(--primary-cyan);" onclick="readCreatorChapter('${title}', ${i})">📖 ${i}화 읽기 (0.1 Test-Pi)</button>
-                        </div>
-                    `;
-                }
+            });
 
-                // 독자 기준에서 다음 회차가 아직 집필 중인 상태를 보여주고 싶을 때의 표시
-                if (!isMyWork) {
+            // 💡 독자 시점일 때의 '집필 중' 연출 분기 (네가 걱정했던 순차적 생성 및 집필 중 표시 영역)
+            if (!isMyWork) {
+                if (chapters.length <= 1) {
                     html += `
                         <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
                             <div>
-                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 ${(targetCreator ? targetCreator.currentCh : 1) + 1}화</div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 2화</div>
+                                <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ 2화 집필 중...</div>
+                            </div>
+                            <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
+                        </div>
+                    `;
+                } else {
+                    const nextChNum = chapters.length + 1;
+                    html += `
+                        <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
+                            <div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 ${nextChNum}화</div>
                                 <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ 집필 중...</div>
                             </div>
                             <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
@@ -2407,19 +2446,25 @@ function getNationCode(selectElementId) {
             
             openModal('creatorReadModal');
         }
-
+        
         // 📖 오리지널 시리즈 회차 읽기 (DB 저장된 실제 본문 연동 완료)
         function readCreatorChapter(title, chNum) {
             closeModal('creatorReadModal');
-            document.getElementById('singleReaderTitle').innerText = `${title} - 제 ${chNum}화`;
-            
             const targetCreator = creatorMockList.find(item => item.title === title);
-            const realContent = targetCreator ? (targetCreator.desc || targetCreator.content || "저장된 본문 내용이 없습니다.") : "오리지널 시리즈 본문 내용...";
+            const chapterObj = targetCreator && targetCreator.chapters 
+                ? targetCreator.chapters.find(c => c.ch === chNum) 
+                : null;
+
+            document.getElementById('singleReaderTitle').innerText = chapterObj 
+                ? `${title} - 제 ${chNum}화 : ${chapterObj.title}` 
+                : `${title} - 제 ${chNum}화`;
             
-            document.getElementById('singleReaderBody').innerText = realContent;
+            document.getElementById('singleReaderBody').innerText = chapterObj 
+                ? chapterObj.content 
+                : (targetCreator ? targetCreator.desc : "저장된 본문 내용이 없습니다.");
+            
             openModal('creatorSingleReaderModal');
         }
-
         function openCreatorReadModalFromReader() {
             closeModal('creatorSingleReaderModal');
             openModal('creatorReadModal');
@@ -2644,62 +2689,86 @@ function getNationCode(selectElementId) {
         }
 
        // 자유게시판 자바스크립트 함수 
-        let freeBoardPosts = [
-        { id: 1, title: '안녕하세요! 첫 릴레이 개설했습니다.', author: 'wnalsdud88', date: '2026-04-05', views: 12, content: '다들 많은 참여 부탁드려요!' }
-    ];
+        let freeBoardCurrentPage = 1;
+        const FREE_BOARD_PER_PAGE = 20;
 
-    function renderFreeBoardList() {
-        const container = document.getElementById('freeBoardListContainer');
-        if (!container) return;
+        function renderFreeBoardList(page = 1) {
+            freeBoardCurrentPage = page;
+            const container = document.getElementById('freeBoardListContainer');
+            if (!container) return;
 
-        if (freeBoardPosts.length === 0) {
-            container.innerHTML = `<p style="text-align:center; color:var(--text-sub); padding:20px;">등록된 게시글이 없습니다.</p>`;
-            return;
+            if (freeBoardPosts.length === 0) {
+                container.innerHTML = `<p style="text-align:center; color:var(--text-sub); padding:20px;">등록된 게시글이 없습니다.</p>`;
+                return;
+            }
+
+            const totalPages = Math.ceil(freeBoardPosts.length / FREE_BOARD_PER_PAGE);
+            if (freeBoardCurrentPage > totalPages) freeBoardCurrentPage = totalPages;
+
+            const startIdx = (freeBoardCurrentPage - 1) * FREE_BOARD_PER_PAGE;
+            const endIdx = startIdx + FREE_BOARD_PER_PAGE;
+            const pagedPosts = freeBoardPosts.slice(startIdx, endIdx);
+
+            let html = '';
+            pagedPosts.forEach(post => {
+                html += `
+                    <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 0.82rem;">
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary-cyan); margin-bottom: 4px;">
+                            <span>${post.title}</span>
+                            <span style="font-size: 0.72rem; color: var(--text-sub);">${post.date}</span>
+                        </div>
+                        <div style="color: var(--text-bright); margin-bottom: 6px; line-height: 1.4; white-space: pre-line;">${post.content}</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-sub);">
+                            <span>작성자: ${post.author}</span>
+                            <span>조회수: ${post.views}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 💡 20개 초과 시 페이지네이션 바 렌더링
+            if (totalPages > 1) {
+                html += `<div style="display: flex; justify-content: center; gap: 6px; margin-top: 12px; flex-wrap: wrap;">`;
+                if (freeBoardCurrentPage > 1) {
+                    html += `<button class="page-btn" onclick="renderFreeBoardList(${freeBoardCurrentPage - 1})">◀ 이전</button>`;
+                }
+                for (let p = 1; p <= totalPages; p++) {
+                    const activeStyle = (p === freeBoardCurrentPage) ? 'border-color: var(--primary-cyan) !important; color: var(--primary-cyan) !important; font-weight: 800;' : '';
+                    html += `<button class="page-btn" style="${activeStyle}" onclick="renderFreeBoardList(${p})">${p}</button>`;
+                }
+                if (freeBoardCurrentPage < totalPages) {
+                    html += `<button class="page-btn" onclick="renderFreeBoardList(${freeBoardCurrentPage + 1})">다음 ▶</button>`;
+                }
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
         }
 
-        let html = '';
-        freeBoardPosts.forEach(post => {
-            html += `
-                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 0.82rem;">
-                    <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary-cyan); margin-bottom: 4px;">
-                        <span>${post.title}</span>
-                        <span style="font-size: 0.72rem; color: var(--text-sub);">${post.date}</span>
-                    </div>
-                    <div style="color: var(--text-bright); margin-bottom: 6px; line-height: 1.4;">${post.content}</div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-sub);">
-                        <span>작성자: ${post.author}</span>
-                        <span>조회수: ${post.views}</span>
-                    </div>
-                </div>
-            `;
-        });
-        container.innerHTML = html;
-    }
+        function submitFreeBoardPost() {
+            const title = document.getElementById('inputFreeTitle').value.trim();
+            const content = document.getElementById('inputFreeContent').value.trim();
 
-    function submitFreeBoardPost() {
-        const title = document.getElementById('inputFreeTitle').value.trim();
-        const content = document.getElementById('inputFreeContent').value.trim();
+            if (!title || !content) {
+                alert("제목과 내용을 모두 입력해주세요.");
+                return;
+            }
 
-        if (!title || !content) {
-            alert("제목과 내용을 모두 입력해주세요.");
-            return;
+            freeBoardPosts.unshift({
+                id: Date.now(),
+                title,
+                author: currentUserId || 'Pioneer',
+                date: new Date().toISOString().split('T')[0],
+                views: 1,
+                content
+            });
+
+            document.getElementById('inputFreeTitle').value = '';
+            document.getElementById('inputFreeContent').value = '';
+            
+            alert("💬 자유게시판에 글이 등록되었습니다!");
+            renderFreeBoardList(1); // 새 글 등록 시 1페이지로 이동
         }
-
-        freeBoardPosts.unshift({
-            id: Date.now(),
-            title,
-            author: currentUserId || 'Pioneer',
-            date: new Date().toISOString().split('T')[0],
-            views: 1,
-            content
-        });
-
-        document.getElementById('inputFreeTitle').value = '';
-        document.getElementById('inputFreeContent').value = '';
-
-        alert("💬 자유게시판에 글이 등록되었습니다!");
-        renderFreeBoardList();
-    }
         
     </script>
 </body>
