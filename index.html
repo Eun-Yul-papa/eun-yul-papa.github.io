@@ -1394,7 +1394,6 @@ div[id$="-card-container"] p {
         let creatorClaimablePi = 0.0;     // 5. 출금 가능 정산액 (0.0부터 실제 누적)
         
         let creatorStudioHistory = [];    // 크리에이터 스튜디오 참여 이력 (빈 배열로 시작
-        let userVotedRelays = [];     // 💡 실제 투표 참여한 릴레이 목록
         let alarmList = [];           // 💡 가짜 알림 샘플을 비우고 실시간 알림을 담을 배열
         let archiveDataList = [
             {
@@ -1771,9 +1770,7 @@ function getNationCode(selectElementId) {
             
             alert(`🎉 '${title}' 스토리 릴레이가 성공적으로 개설되었습니다!`);
             
-            if (typeof renderRelayListContent === 'function') {
-                renderRelayListContent();
-            }
+            showRelayListView('write');
         }
         
         // ==========================================
