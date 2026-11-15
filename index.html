@@ -2455,18 +2455,46 @@ function getNationCode(selectElementId) {
                 return;
             }
 
-            // 💡 상세 모달 열 때 activeRelayId를 미리 정확히 세팅! ('이전까지 스토리 보기' 연동용)
+            // 💡 상세 모달 기본 정보 세팅
             document.getElementById('activeRelayId').value = targetRelay.id;
             document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
             document.getElementById('integratedTitle').innerText = targetRelay.title;
             document.getElementById('integratedDesc').innerText = `"${targetRelay.content}"`;
             
+            // 💡 [핵심 추가] '이전까지 스토리 보기' 영역에 진짜 chapters 데이터 동적 렌더링
+            const storyBodyContainer = document.getElementById('integratedStoryBody'); // 모달 안의 본문 컨테이너 ID
+            if (storyBodyContainer) {
+                if (targetRelay.chapters && targetRelay.chapters.length > 0) {
+                    let chaptersHtml = '';
+                    targetRelay.chapters.forEach(ch => {
+                        chaptersHtml += `
+                            <div style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                                <div style="color: var(--primary-cyan); font-weight: 700; margin-bottom: 5px;">
+                                    제 ${ch.ch}화 : ${ch.title}
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 8px;">
+                                    (작가 : ${ch.author || targetRelay.creatorName})
+                                </div>
+                                <div style="color: #fff; line-height: 1.6; white-space: pre-wrap;">
+                                    ${ch.content}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    storyBodyContainer.innerHTML = chaptersHtml;
+                } else {
+                    storyBodyContainer.innerHTML = `<div style="color: #fff; line-height: 1.6; white-space: pre-wrap;">${targetRelay.content || "등록된 본문 내용이 없습니다."}</div>`;
+                }
+            }
+
+            // 하단 버튼 동적 분기
             const btnContainer = document.getElementById('integratedButtonContainer');
             if (targetRelay.phase === 'vote') {
                 btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange);" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
             } else {
                 btnContainer.innerHTML = `<button class="btn btn-primary" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 Test-Pi)</button>`;
             }
+
             openModal('integratedRelayModal');
         }
         
