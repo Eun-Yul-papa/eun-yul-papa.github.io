@@ -1512,6 +1512,10 @@ function getNationCode(selectElementId) {
             container.innerHTML = html;
         }
 
+        function checkAndLoadDraftForWriter(relayId) {
+            // 임시저장 기능이 따로 없다면 빈 상태로 두어도 에러 없이 통과됩니다.
+            console.log("Draft check for relay:", relayId);
+        }
         
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
