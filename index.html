@@ -1761,19 +1761,26 @@ function getNationCode(selectElementId) {
                 if (typeof renderStudioHistoryList === 'function') renderStudioHistoryList();
             }
 
-            // 4. 입력창 초기화 및 모달 닫기
+            // 4. 입력창 초기화 및 임시저장 삭제
             if (titleInput) titleInput.value = '';
             if (subtitleInput) subtitleInput.value = '';
             if (contentInput) contentInput.value = '';
-            localStorage.removeItem(`relay_draft_${relayId}`);
-            
+            // (참고: newRelayId는 함수 안에서 선언된 변수 이름에 맞춰서 들어가야 해!)
+            localStorage.removeItem(`relay_draft_${newRelayId}`);
+
+            // 5. 알림을 먼저 띄워서 유저가 성공했음을 인지하게 함!
+            alert(`🎉 '${title}' 스토리 릴레이가 성공적으로 개설되었습니다!`);
+
+            // 6. 확인을 누르면 모달을 닫고, 배지 갱신 및 리스트 뷰로 부드럽게 전환
             closeModal('createModal');
             updateRelayHubBadges();
             
-            alert(`🎉 '${title}' 스토리 릴레이가 성공적으로 개설되었습니다!`);
-            
-            showRelayListView('write');
-        }
+            if (typeof showRelayListView === 'function') {
+                showRelayListView('write');
+            }
+            if (typeof renderRelayListContent === 'function') {
+                renderRelayListContent();
+            }
         
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
