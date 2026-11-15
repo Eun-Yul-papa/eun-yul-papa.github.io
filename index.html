@@ -1765,6 +1765,7 @@ function getNationCode(selectElementId) {
             if (titleInput) titleInput.value = '';
             if (subtitleInput) subtitleInput.value = '';
             if (contentInput) contentInput.value = '';
+            localStorage.removeItem(`relay_draft_${relayId}`);
             
             closeModal('createModal');
             updateRelayHubBadges();
@@ -2537,7 +2538,7 @@ function getNationCode(selectElementId) {
                 timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
             }
 
-            // 💡 다음 작성할 회차 번호 계산 (기존 1화까지 있으면 이제 2화 작성 차례)
+            // 💡 다음 작성할 회차 번호 계산
             const nextChNum = (targetRelay.chapters ? targetRelay.chapters.length : 1) + 1;
             const formatStr = targetRelay.format || '';
             const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
@@ -2554,7 +2555,14 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 해당 relayId 전용 임시저장 원고 불러오기
+            // 💡 [핵심 방어선] 다른 릴레이의 입력 잔상이 남지 않도록 작성 입력창(textarea 등)을 먼저 깨끗하게 초기화!
+            const writerInputTitle = document.getElementById('writerInputTitle'); // 작성하는 제목 input (만약 있다면)
+            const writerInputContent = document.getElementById('writerInputContent'); // 작성하는 본문 textarea
+            
+            if (writerInputTitle) writerInputTitle.value = '';
+            if (writerInputContent) writerInputContent.value = '';
+
+            // 해당 relayId 전용 임시저장 원고 불러오기 (오직 이 릴레이 ID에 저장된 것만 불러옴)
             checkAndLoadDraftForWriter(targetRelay.id);
 
             // 바이트 카운터 초기화/갱신
@@ -2563,8 +2571,6 @@ function getNationCode(selectElementId) {
 
             openModal('writerModal');
         }
-        let relayDrafts = []; // 📝 임시저장 원고 보관함
-
         function saveRelayDraft() {
             const relayId = document.getElementById('activeRelayId').value;
             const subtitle = document.getElementById('writerSubtitleInput').value;
