@@ -2091,7 +2091,10 @@ function getNationCode(selectElementId) {
             
             // 💡 5일(120시간)이 지난 만료된 릴레이는 자동 필터링(삭제) 처리
             relayMockList = relayMockList.filter(item => {
-                if (!item.createdAt) item.createdAt = now; // 생성일 없으면 현재로 세팅
+                // 만약에 생성일이 아예 없는 구형 더미 데이터라면 그때만 현재 시간 부여, 이미 있는 createdAt은 절대 건드리지 않음!
+                if (!item.createdAt) {
+                item.createdAt = now;
+                }
                 const timeCheck = calculateRemainingTime(item.createdAt);
                 return !timeCheck.expired;
             });
@@ -2621,12 +2624,13 @@ function getNationCode(selectElementId) {
 
             // 💡 크리에이터 스튜디오 참여 이력에 자동 추가   
             if (!creatorStudioHistory.some(h => h.id === relayId)) {
-    creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: '집필참여', share: '지분산정중' });
-    renderStudioHistoryList();
-}
+                creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: '집필참여', share: '지분산정중' });
+                renderStudioHistoryList();
+            }
 
             if (targetRelay && content) {
-                if (!targetRelay.chapters) {
+                // 만약 아직 chapters가 없다면 최초 1화(오리지널 개설 내용)를 먼저 배열에 박아둠
+                if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
                     targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
                 }
                 const nextCh = targetRelay.chapters.length + 1;
@@ -2637,8 +2641,7 @@ function getNationCode(selectElementId) {
                     content: content
                 });
                 targetRelay.currentCh = nextCh;
-                targetRelay.content = content; // 최신 본문 미리보기 갱신
-
+                
                 // 제출 완료된 임시저장 원고 삭제
                 relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
                 localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
