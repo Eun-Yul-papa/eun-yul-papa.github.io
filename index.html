@@ -2098,7 +2098,7 @@ function getNationCode(selectElementId) {
             let filteredRelayList = relayMockList.filter(item => {
                 if (item.isBlind) return false;
                 if (selectedNation !== 'ALL' && item.nation !== selectedNation) return false;
-                if (currentRelayHubMode === 'write') return item.phase === 'write';
+                if (currentRelayHubMode === 'write') return item.phase: currentRelayHubMode || 'write';
                 if (currentRelayHubMode === 'vote') return item.phase === 'vote';
                 return true;
             });
