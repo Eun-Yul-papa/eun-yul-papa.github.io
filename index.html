@@ -1765,7 +1765,6 @@ function getNationCode(selectElementId) {
             if (titleInput) titleInput.value = '';
             if (subtitleInput) subtitleInput.value = '';
             if (contentInput) contentInput.value = '';
-            // (참고: newRelayId는 함수 안에서 선언된 변수 이름에 맞춰서 들어가야 해!)
             localStorage.removeItem(`relay_draft_${newRelayId}`);
 
             // 5. 알림을 먼저 띄워서 유저가 성공했음을 인지하게 함!
