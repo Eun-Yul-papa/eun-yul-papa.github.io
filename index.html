@@ -1699,39 +1699,80 @@ function getNationCode(selectElementId) {
         }
 
         async function createNewRelayCard() {
-            const title = document.getElementById('inputTitle').value || "무제 스토리";
-            const subtitle = document.getElementById('inputSubtitle').value || "제 1화";
-            const content = document.getElementById('storyContent').value;
-            const format = document.getElementById('selectFormat').value;
-            const lengthType = document.getElementById('selectLength').value;
+            const titleInput = document.getElementById('inputTitle');
+            const subtitleInput = document.getElementById('inputSubtitle');
+            const contentInput = document.getElementById('storyContent');
+            const formatSelect = document.getElementById('selectFormat');
+            const lengthSelect = document.getElementById('selectLength');
+            
+            const title = titleInput ? titleInput.value.trim() : "무제 스토리";
+            const subtitle = subtitleInput ? subtitleInput.value.trim() : "제 1화";
+            const content = contentInput ? contentInput.value.trim() : "";
+            const format = formatSelect ? formatSelect.value : "소설";
+            const lengthType = lengthSelect ? lengthSelect.value : "단편";
             const nationCode = getNationCode('userLangSelect');
 
+            if (!title || !content) {
+                alert("제목과 본문을 모두 입력해주세요.");
+                return;
+            }
+
+            const newRelayId = 'card_' + Date.now();
             const newRelayObj = {
-                id: 'card_' + Date.now(),
-                title,
+                id: newRelayId,
+                title: title,
                 nation: nationCode,
                 format: `${format} / ${lengthType}`,
                 progress: '1/5 참여중',
                 phase: 'write',
                 currentCh: 1,
-                createdAt: Date.now(), // 💡 정확한 현재 생성 시간 실시간 반영!
-                content,
-                creatorName: currentUserId,
+                createdAt: Date.now(), // 💡 정확한 마감 타이머 계산용 타임스탬프
+                content: content,
+                creatorName: currentUserId || 'Pioneer',
                 isBlind: false,
                 chapters: [
-                    { ch: 1, title: subtitle, author: currentUserId, content: content }
+                    { ch: 1, title: subtitle, author: currentUserId || 'Pioneer', content: content }
                 ]
             };
 
-            relayMockList.unshift(newRelayObj);
-            updateRelayHubBadges();
+            // 1. 서버 통신 시도 (실패해도 로컬 배열에 즉시 푸시하여 앱이 멈추지 않도록 방어)
+            try {
+                await fetch('http://localhost:5000/api/relay/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content, nation: nationCode, format, author: currentUserId })
+                });
+            } catch (error) {
+                console.warn("⚠️ 백엔드 서버 통신 생략 (로컬 모드로 즉시 반영됩니다)");
+            }
 
+            // 2. 모의 목록 배열에 새 릴레이 최상단 추가
+            relayMockList.unshift(newRelayObj);
+            
+            // 3. 크리에이터 스튜디오 참여 이력에도 자동 추가
+            if (typeof creatorStudioHistory !== 'undefined') {
+                creatorStudioHistory.unshift({ 
+                    id: newRelayId, 
+                    title: title, 
+                    type: 'relay', 
+                    status: '집필참여', 
+                    share: '지분산정중' 
+                });
+                if (typeof renderStudioHistoryList === 'function') renderStudioHistoryList();
+            }
+
+            // 4. 입력창 초기화 및 모달 닫기
+            if (titleInput) titleInput.value = '';
+            if (subtitleInput) subtitleInput.value = '';
+            if (contentInput) contentInput.value = '';
+            
             closeModal('createModal');
-            document.getElementById('inputTitle').value = '';
-            document.getElementById('inputSubtitle').value = '';
-            document.getElementById('storyContent').value = '';
-            alert(`🎉 '${title}' 스토리 릴레이가 등록되었습니다!`);
-            renderRelayListContent();
+            updateRelayHubBadges();
+            
+            alert(`🎉 '${title}' 스토리 릴레이가 성공적으로 개설되었습니다!`);
+            
+            // 5. 즉시 릴레이 목록 화면으로 이동하여 내가 만든 글 확인
+            showRelayListView('write');
         }
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
