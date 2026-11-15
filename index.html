@@ -1512,10 +1512,7 @@ function getNationCode(selectElementId) {
             container.innerHTML = html;
         }
 
-        function checkAndLoadDraftForWriter(relayId) {
-            // 임시저장 기능이 따로 없다면 빈 상태로 두어도 에러 없이 통과됩니다.
-            console.log("Draft check for relay:", relayId);
-        }
+        
         
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
@@ -2473,6 +2470,11 @@ function getNationCode(selectElementId) {
             openModal('integratedRelayModal');
         }
         
+        // 💡 임시저장 원고 불러오기 안전 처리 함수 (에러 방지용)
+        function checkAndLoadDraftForWriter(relayId) {
+            console.log("Checking draft for relay:", relayId);
+            // 만약 임시저장 데이터 연동 로직이 필요하다면 이 안에서 처리하면 됩니다.
+        }
         function openWriterModal(relayId) {
             closeModal('integratedRelayModal');
             const targetRelay = relayMockList.find(r => r.id === relayId);
