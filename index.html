@@ -560,7 +560,7 @@ div[id$="-card-container"] p {
                     Deep Blue Sea는 파이 네트워크(Pi Network) 기반의 <b>탈중앙화 Web3 스토리텔링 플랫폼</b>입니다. 누구나 부담 없이 무료로 이야기를 읽고 투표에 참여하며, 작가는 물론 독자까지 <b>생태계에 기여한 가치만큼 소득과 보상을 함께 나누는 지속 가능한 창작 경제</b>를 만들어갑니다.
                 </div>
                 <div class="tokenomics-box">
-                    💎 <b>미래 가치 창출</b>: 완결된 우수 스토리 작품은 <b>RWA(실물자산) 및 NFT 디지털 자산</b>으로 판권화되어 글로벌 시장으로 확장됩니다.
+                    💎 <b>미래 가치 창출 계획</b>: 완결된 우수 스토리 작품은 추후 스마트 컨트랙트 기반 <b>RWA(실물자산) 및 NFT 디지털 자산</b>으로 판권화되어 글로벌 시장으로 확장시킬 계획입니다.
                 </div>
             </div>
 
@@ -1341,7 +1341,7 @@ div[id$="-card-container"] p {
                     <span class="byte-status valid" id="creator-continue-byte">0 Bytes</span>
                 </div>
             </div>
-            <button class="btn btn-primary" id="btn-submit-creator-continue" disabled onclick="submitCreatorContinueChapter()">🚀 다음 회차 연재 등록하기 (0.1 Test-Pi 유료 설정)</button>
+            <button class="btn btn-primary" id="btn-submit-creator-continue" disabled onclick="submitCreatorContinueChapter()">🚀 다음 회차 연재 등록하기 (무료연재)</button>
         </div>
     </div>
 
@@ -1386,13 +1386,16 @@ div[id$="-card-container"] p {
         let activeArchiveReaderItem = null;
         let activeArchiveChapterIdx = 1;
 
-        let reportDatabase = [];
-
-        let creatorStudioHistory = [
-            { id: 'studio_c1', title: '심해 마법사의 공방', type: 'creator', status: '연재중', share: '95%' },
-            { id: 'arc_01', title: '심해의 소용돌이 속에서', type: 'archive', status: '완결', share: '25%' }
-        ];
-
+        let freeBoardPosts = [];
+        let followingWriters = [];        // 1. 팔로잉 작가 목록
+        let userVotedRelays = [];         // 2. 투표 참여한 릴레이 목록
+        let subscribedCreators = [];      // 3. 구독(열람)한 오리지널 시리즈 목록
+        let ownedArchives = [];           // 4. 소장한 아카이브 도서 목록
+        let creatorClaimablePi = 0.0;     // 5. 출금 가능 정산액 (0.0부터 실제 누적)
+        
+        let creatorStudioHistory = [];    // 크리에이터 스튜디오 참여 이력 (빈 배열로 시작
+        let userVotedRelays = [];     // 💡 실제 투표 참여한 릴레이 목록
+        let alarmList = [];           // 💡 가짜 알림 샘플을 비우고 실시간 알림을 담을 배열
         let archiveDataList = [
             {
                 id: 'arc_01',
@@ -1478,6 +1481,39 @@ function getNationCode(selectElementId) {
                 badge.innerText = `${activeCreators.length}건`;
             }
         }
+
+        // 예: 후보작 투표 완료 시 실행되는 함수 안쪽
+        function submitVoteForCandidate(relayId, relayTitle, candidateName) {
+            if (!userVotedRelays.some(v => v.id === relayId)) {
+                userVotedRelays.push({ id: relayId, title: relayTitle, choice: candidateName });
+                renderAllSubscriptionActivities(); // 나의 구독 활동 실시간 갱신
+            }
+            alert(`🎉 '${candidateName}' 후보에 투표가 완료되었습니다!`);
+            closeModal('candidateReaderModal');
+        }
+
+        function renderAlarmList() {
+            const container = document.getElementById('alarmListContainer');
+            if (!container) return;
+
+            if (alarmList.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:15px;">새로운 실시간 알림이 없습니다.</div>`;
+                return;
+            }
+
+            let html = '';
+            alarmList.forEach(alarm => {
+                html += `
+                    <div style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
+                        <div style="color:var(--primary-cyan); font-weight:800;">✨ ${alarm.title}</div>
+                        <div style="font-size:0.82rem; color:var(--text-sub);">${alarm.desc}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        
         // ==========================================
         // 🔄 백엔드 API 연동 함수군
         // ==========================================
@@ -1661,7 +1697,42 @@ function getNationCode(selectElementId) {
                 relayDrafts = [];
             }
         }
-        
+
+        async function createNewRelayCard() {
+            const title = document.getElementById('inputTitle').value || "무제 스토리";
+            const subtitle = document.getElementById('inputSubtitle').value || "제 1화";
+            const content = document.getElementById('storyContent').value;
+            const format = document.getElementById('selectFormat').value;
+            const lengthType = document.getElementById('selectLength').value;
+            const nationCode = getNationCode('userLangSelect');
+
+            const newRelayObj = {
+                id: 'card_' + Date.now(),
+                title,
+                nation: nationCode,
+                format: `${format} / ${lengthType}`,
+                progress: '1/5 참여중',
+                phase: 'write',
+                currentCh: 1,
+                createdAt: Date.now(), // 💡 정확한 현재 생성 시간 실시간 반영!
+                content,
+                creatorName: currentUserId,
+                isBlind: false,
+                chapters: [
+                    { ch: 1, title: subtitle, author: currentUserId, content: content }
+                ]
+            };
+
+            relayMockList.unshift(newRelayObj);
+            updateRelayHubBadges();
+
+            closeModal('createModal');
+            document.getElementById('inputTitle').value = '';
+            document.getElementById('inputSubtitle').value = '';
+            document.getElementById('storyContent').value = '';
+            alert(`🎉 '${title}' 스토리 릴레이가 등록되었습니다!`);
+            renderRelayListContent();
+        }
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
@@ -1676,7 +1747,8 @@ function getNationCode(selectElementId) {
             }
 
             loadDraftsFromStorage(); // 👈 이 줄을 여기에 추가! (페이지 켜질 때 임시저장 글 불러오기)
-            
+            renderAllSubscriptionActivities(); // 💡 나의 구독 활동 4종 전체 초기화
+            renderFollowingWritersList();
             fetchRelayList();
             fetchCreatorList();
             renderStudioHistoryList();
@@ -1719,8 +1791,10 @@ function getNationCode(selectElementId) {
     openModal(modalId); 
 }
         
-        function openAlarmModal() { openModal('alarmModal'); }
-
+        function openAlarmModal() { 
+            renderAlarmList();
+            openModal('alarmModal'); 
+        }
         function toggleModalAccordion(accordionId) {
             const content = document.getElementById(accordionId);
             const arrow = document.getElementById(accordionId.replace('Accordion', 'Arrow'));
@@ -1733,21 +1807,28 @@ function getNationCode(selectElementId) {
             }
         }
 
+        // 🎨 1. 크리에이터 스튜디오 통합 이력 & 정산액 렌더링
         function renderStudioHistoryList() {
             const container = document.getElementById('studioIntegratedAccordion');
+            const balanceEl = document.getElementById('studioClaimableBalance');
+            if (balanceEl) balanceEl.innerText = `${creatorClaimablePi.toFixed(1)} Test-Pi`;
             if (!container) return;
-            let html = '';
-            
-            creatorStudioHistory.forEach(item => {
-                const icon = item.type === 'creator' ? '🟢' : '🏛️';
-                html += `
-                    <div class="modal-sub-item">
-                        <span>${icon} ${item.title} (${item.status} - 지분 ${item.share})</span>
-                    </div>
-                `;
-            });
 
-            // 💡 임시저장된 원고 목록 아코디언 하단에 추가
+            let html = '';
+            if (creatorStudioHistory.length === 0 && relayDrafts.length === 0) {
+                html = `<div class="modal-sub-item"><span>• 아직 참여한 릴레이나 연재 중인 오리지널 작품이 없습니다.</span></div>`;
+            } else {
+                creatorStudioHistory.forEach(item => {
+                    const icon = item.type === 'creator' ? '🟢' : (item.type === 'relay' ? '✍️' : '🏛️');
+                    html += `
+                        <div class="modal-sub-item" onclick="navigateToActivity('${item.type}', '${item.id}')">
+                            <span>${icon} ${item.title} (${item.status} - 지분 ${item.share})</span>
+                        </div>
+                    `;
+                });
+            }
+
+            // 임시저장된 원고 목록 아코디언 하단에 추가
             if (relayDrafts.length > 0) {
                 html += `<div style="font-size: 0.8rem; font-weight: 700; color: var(--warning-orange); margin: 10px 0 4px 0;">📝 임시저장된 이어쓰기 원고 (${relayDrafts.length}건)</div>`;
                 relayDrafts.forEach((draft, idx) => {
@@ -1759,21 +1840,112 @@ function getNationCode(selectElementId) {
                     `;
                 });
             }
-
             container.innerHTML = html;
+        }
+
+        // 📌 2. 나의 구독 활동 4개 아코디언 전체 실시간 동기화 함수
+        function renderAllSubscriptionActivities() {
+            // (1) 팔로잉 작가
+            const writerBody = document.getElementById('subWriterAccordion');
+            const writerHeader = document.querySelector('[onclick="toggleModalAccordion(\'subWriterAccordion\')"] span');
+            if (writerHeader) writerHeader.innerHTML = `✨ 팔로잉 작가 (${followingWriters.length}명)`;
+            if (writerBody) {
+                writerBody.innerHTML = followingWriters.length === 0
+                    ? `<div class="modal-sub-item"><span>• 팔로잉 중인 작가가 없습니다.</span></div>`
+                    : followingWriters.map(w => `<div class="modal-sub-item" onclick="navigateToActivity('writer', '${w}')"><span>• ${w} (새 회차 알림 활성화)</span></div>`).join('');
+            }
+
+            // (2) 투표에 참여중인 글
+            const voteBody = document.getElementById('subVoteAccordion');
+            const voteHeader = document.querySelector('[onclick="toggleModalAccordion(\'subVoteAccordion\')"] span');
+            if (voteHeader) voteHeader.innerHTML = `🗳️ 투표에 참여중인 글 (${userVotedRelays.length}건)`;
+            if (voteBody) {
+                voteBody.innerHTML = userVotedRelays.length === 0
+                    ? `<div class="modal-sub-item"><span>• 투표에 참여한 릴레이가 없습니다.</span></div>`
+                    : userVotedRelays.map(v => `<div class="modal-sub-item" onclick="navigateToActivity('relay', '${v.id}')"><span>• ${v.title} (${v.choice})</span></div>`).join('');
+            }
+
+            // (3) 구독중인 오리지널 시리즈
+            const creatorBody = document.getElementById('subCreatorAccordion');
+            const creatorHeader = document.querySelector('[onclick="toggleModalAccordion(\'subCreatorAccordion\')"] span');
+            if (creatorHeader) creatorHeader.innerHTML = `📚 구독중인 오리지널 시리즈 (${subscribedCreators.length}개)`;
+            if (creatorBody) {
+                creatorBody.innerHTML = subscribedCreators.length === 0
+                    ? `<div class="modal-sub-item"><span>• 구독중인 오리지널 시리즈가 없습니다.</span></div>`
+                    : subscribedCreators.map(c => `<div class="modal-sub-item" onclick="navigateToActivity('creator', '${c}')"><span>• ${c} (알림 수신중)</span></div>`).join('');
+            }
+
+            // (4) 소장한 아카이브 도서
+            const archiveBody = document.getElementById('subArchiveAccordion');
+            const archiveHeader = document.querySelector('[onclick="toggleModalAccordion(\'subArchiveAccordion\')"] span');
+            if (archiveHeader) archiveHeader.innerHTML = `🏛️ 소장한 아카이브 도서 (${ownedArchives.length}권)`;
+            if (archiveBody) {
+                archiveBody.innerHTML = ownedArchives.length === 0
+                    ? `<div class="modal-sub-item"><span>• 소장한 아카이브 도서가 없습니다.</span></div>`
+                    : ownedArchives.map(a => `<div class="modal-sub-item" onclick="navigateToActivity('archive', '${a.id}')"><span>• ${a.title} (영구 소장)</span></div>`).join('');
+            }
         }
 
         function navigateToActivity(section, targetId) {
             closeModal('subscriptionActivityModal');
             closeModal('creatorStudioModal');
-            if (section === 'archive') { switchTab('archive'); buyAndReadArchive('arc_01', '심해의 소용돌이 속에서', 0.5); }
-            else if (section === 'creator') { switchTab('creator'); showCreatorListView(); }
-            else if (section === 'relay') { switchTab('relay'); showRelayListView('write'); }
+            if (section === 'archive') {
+                switchTab('archive');
+                const found = archiveDataList.find(a => a.id === targetId);
+                if (found) openArchiveChapterReader(found, 1, false);
+                else showArchiveFilteredList('relay');
+            } else if (section === 'creator' || section === 'writer') {
+                switchTab('creator');
+                showCreatorListView();
+            } else if (section === 'relay') {
+                switchTab('relay');
+                showRelayListView('write');
+            }
         }
 
-        function toggleFollow(authorName) { alert(`🎉 '${authorName}' 작가님을 팔로우했습니다!`); }
-        function claimCreatorEarnings() { alert('🎉 크리에이터 수익이 출금되었습니다!'); document.getElementById('studioClaimableBalance').innerText = '0.0 Test-Pi'; }
+        function toggleFollow(authorName) {
+            if (!followingWriters.includes(authorName)) {
+                followingWriters.push(authorName);
+                alert(`🎉 '${authorName}' 작가님을 팔로우했습니다!\n[나의 구독 활동]에 추가되었습니다.`);
+            } else {
+                alert(`이미 팔로잉 중인 작가님입니다.`);
+            }
+            renderAllSubscriptionActivities();
+        }
 
+        // 📌 [나의 구독 활동] 모달 안의 팔로잉 작가 목록을 동적으로 렌더링하는 함수
+        function renderFollowingWritersList() {
+            const accordionBody = document.getElementById('subWriterAccordion');
+            if (!accordionBody) return;
+
+            let html = '';
+            followingWriters.forEach(writer => {
+                html += `
+                    <div class="modal-sub-item" onclick="navigateToActivity('writer', '${writer}')">
+                        <span>• ${writer} (새 회차 알림 활성화)</span>
+                    </div>
+                `;
+            });
+            accordionBody.innerHTML = html;
+
+            // 팔로잉 작가 갯수 타이틀도 실시간 반영
+            const headerTitle = document.querySelector('[onclick="toggleModalAccordion(\'subWriterAccordion\')"] span');
+            if (headerTitle) {
+                headerTitle.innerHTML = `✨ 팔로잉 작가 (${followingWriters.length}명)`;
+            }
+        }
+        function claimCreatorEarnings() {
+            if (creatorClaimablePi <= 0) {
+                alert('출금 가능한 정산 수익이 없습니다.');
+                return;
+            }
+            currentBalance += creatorClaimablePi;
+            userRewardedPi += creatorClaimablePi;
+            alert(`🎉 ${creatorClaimablePi.toFixed(1)} Test-Pi 수익이 지갑으로 출금되었습니다!`);
+            creatorClaimablePi = 0.0;
+            updateWalletDisplay();
+            renderStudioHistoryList();
+        }
         function switchTab(tabName) {
             // 모든 섹션 숨기기
             ['home-section', 'relay-section', 'creator-section', 'archive-section'].forEach(id => {
@@ -2038,6 +2210,10 @@ function getNationCode(selectElementId) {
         function buyAndReadArchive(id, title, price) {
             const item = archiveDataList.find(a => a.id === id) || archiveDataList[0];
             openArchiveChapterReader(item, 1, false);
+            if (!ownedArchives.some(a => a.id === id)) {
+        ownedArchives.push({ id, title });
+        renderAllSubscriptionActivities();
+            }
         }
 
         function openArchiveChapterReader(item, chIdx, viewAll = false) {
@@ -2354,6 +2530,12 @@ function getNationCode(selectElementId) {
             const content = document.getElementById('writerInputContent').value.trim();
             const targetRelay = relayMockList.find(r => r.id === relayId);
 
+            // 💡 크리에이터 스튜디오 참여 이력에 자동 추가   
+            if (!creatorStudioHistory.some(h => h.id === relayId)) {
+    creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: '집필참여', share: '지분산정중' });
+    renderStudioHistoryList();
+}
+
             if (targetRelay && content) {
                 if (!targetRelay.chapters) {
                     targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
@@ -2385,6 +2567,10 @@ function getNationCode(selectElementId) {
             
             const isMyWork = (author === currentUserId);
             const targetCreator = creatorMockList.find(item => item.title === title);
+            if (!isMyWork && !subscribedCreators.includes(title)) {
+                subscribedCreators.push(title);
+                renderAllSubscriptionActivities();
+        }
             
             // 💡 네가 작성했던 원본 안전망 유지 + 실제 chapters 데이터 우선 연동
             let chapters = (targetCreator && targetCreator.chapters && targetCreator.chapters.length > 0) 
@@ -2500,8 +2686,37 @@ function getNationCode(selectElementId) {
         }
 
         function submitCreatorContinueChapter() {
-            alert("🚀 다음 회차 연재가 등록되었습니다!");
+            const subtitle = document.getElementById('inputCreatorContinueSubtitle').value.trim() || "다음 이야기";
+            const content = document.getElementById('inputCreatorContinueContent').value.trim();
+            const targetCreator = creatorMockList.find(item => item.title === activeCreatorTitle);
+
+            if (!content) {
+                alert("본문 내용을 입력해주세요.");
+                return;
+            }
+
+            if (targetCreator) {
+                if (!targetCreator.chapters) {
+                    targetCreator.chapters = [{ ch: 1, title: '제 1화', author: targetCreator.author, content: targetCreator.desc }];
+                }
+                const nextCh = targetCreator.chapters.length + 1;
+                targetCreator.chapters.push({
+                    ch: nextCh,
+                    title: subtitle,
+                    author: currentUserId,
+                    content: content
+                });
+                targetCreator.currentCh = nextCh;
+            }
+
+            document.getElementById('inputCreatorContinueSubtitle').value = '';
+            document.getElementById('inputCreatorContinueContent').value = '';
+            
+            alert("🚀 다음 회차 연재가 성공적으로 등록되었습니다!");
             closeModal('creatorContinueModal');
+            
+            // 등록 직후 회차 목록 모달을 다시 열어서 갱신된 목록 보여주기
+            openCreatorReadModal(activeCreatorTitle, targetCreator ? targetCreator.currentCh : 2, currentUserId);
         }
 
         function handleByteCheckRelay(textareaElem, statusId, btnId) {
