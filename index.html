@@ -1419,7 +1419,7 @@ div[id$="-card-container"] p {
             }
         ];
 
-        let relayMockList = [];
+        let relayMockList = JSON.parse(localStorage.getItem('saved_relay_list')) || [];
         let creatorMockList = [];
 
         // 1. 구글 번역 초기화 (도메인 전체 쿠키 트래킹 활성화)
@@ -1748,6 +1748,9 @@ function getNationCode(selectElementId) {
 
             // 2. 모의 목록 배열에 새 릴레이 최상단 추가
             relayMockList.unshift(newRelayObj);
+            
+            // 💡 [추가] 새로 만든 릴레이와 createdAt 타임스탬프를 로컬스토리지에 영구 저장
+            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
             
             // 3. 크리에이터 스튜디오 참여 이력에도 자동 추가
             if (typeof creatorStudioHistory !== 'undefined') {
@@ -2651,6 +2654,8 @@ function getNationCode(selectElementId) {
                 // 제출 완료된 임시저장 원고 삭제
                 relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
                 localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
+                // 💡 [추가] 이어쓰기가 반영된 릴레이 목록을 로컬스토리지에 동기화
+                localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
                 renderStudioHistoryList();
             }
 
