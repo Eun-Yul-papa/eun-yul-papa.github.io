@@ -1822,6 +1822,7 @@ function getNationCode(selectElementId) {
             document.getElementById('drawerOverlay').classList.add('active');
             document.getElementById('sideDrawer').classList.add('active');
             updateWalletDisplay();
+
             // 💡 [추가] 관리자 권한이 있는 유저(`wnalsdud88` 등)에게만 관리자 메뉴 노출!
             const adminMenuBtn = document.getElementById('adminMenuButton'); // 햄버거 메뉴 안의 관리자 버튼 ID (또는 해당 버튼의 부모/클래스)
             if (adminMenuBtn) {
@@ -2132,16 +2133,19 @@ function getNationCode(selectElementId) {
                         return false; // 릴레이 목록에서는 제거
                     }
                 }
-            
-            // 💡 5일(120시간)이 지난 만료된 릴레이는 자동 필터링(삭제) 처리
-            relayMockList = relayMockList.filter(item => {
-                // 만약에 생성일이 아예 없는 구형 더미 데이터라면 그때만 현재 시간 부여, 이미 있는 createdAt은 절대 건드리지 않음!
+                
+                // 기존 5일 마감 만료 체크
                 if (!item.createdAt) {
-                item.createdAt = now;
+                    item.createdAt = now;
                 }
                 const timeCheck = calculateRemainingTime(item.createdAt);
                 return !timeCheck.expired;
             });
+
+            if (listChanged) {
+                localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+                updateRelayHubBadges();
+            }
 
             let filteredRelayList = relayMockList.filter(item => {
                 if (item.isBlind) return false;
