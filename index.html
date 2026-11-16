@@ -1524,27 +1524,42 @@ function getNationCode(selectElementId) {
                 const result = await response.json();
                 
                 if (result.success && result.data) {
-                    relayMockList = result.data.map(item => ({
-                        id: item._id,
-                        title: item.title,
-                        nation: item.nation || 'KR',
-                        format: item.format || '단편',
-                        progress: '글쓰기 진행중(1/5)',
-                        phase: item.phase || 'write',
-                        time: '05일 00시간 남음',
-                        content: item.content || '',
-                        creatorName: 'wnalsdud88',
-                        isBlind: item.isBlind || false,
-                        reportCount: item.reportCount || 0
-                    }));
+                    // 서버 데이터와 기존 로컬스토리지의 createdAt을 매칭하여 시간 유지
+                    const existingList = JSON.parse(localStorage.getItem('saved_relay_list')) || [];
+                    
+                    relayMockList = result.data.item.map(item => {
+                        const found = existingList.find(e => e.id === item._id);
+                        return {
+                            id: item._id,
+                            title: item.title,
+                            nation: item.nation || 'KR',
+                            format: item.format || '단편',
+                            progress: '글쓰기 진행중(1/5)',
+                            phase: item.phase || 'write',
+                            createdAt: found ? found.createdAt : Date.now(), // 💡 기존 생성 시간 보존! 없으면 현재 시간
+                            content: item.content || '',
+                            creatorName: 'wnalsdud88',
+                            isBlind: item.isBlind || false,
+                            reportCount: item.reportCount || 0,
+                            chapters: found ? found.chapters : []
+                        };
+                    });
                 }
             } catch (error) {
-                console.warn("⚠️ 백엔드 서버에서 릴레이 목록을 가져오지 못해 임시 데이터를 사용합니다.", error);
+                console.warn("⚠️ 백엔드 서버 연동 실패 - 로컬스토리지에 저장된 데이터를 불러옵니다.");
+                // 서버 통신 실패 시 로컬스토리지에 저장된 목록을 최우선으로 복원
+                const savedLocalList = JSON.parse(localStorage.getItem('saved_relay_list'));
+                if (savedLocalList && savedLocalList.length > 0) {
+                    relayMockList = savedLocalList;
+                }
             }
+            
+            // 💡 최종 목록을 로컬스토리지에 동기화 저장
+            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+            
             renderRelayListContent();
             updateRelayHubBadges();
         }
-
         async function createNewCreatorCard() {
             const title = document.getElementById('inputCreatorTitle').value.trim() || "무제 작품";
             const subtitle = document.getElementById('inputCreatorSubtitle').value.trim() || "제 1화";
