@@ -1560,6 +1560,37 @@ function getNationCode(selectElementId) {
             renderRelayListContent();
             updateRelayHubBadges();
         }
+
+        async function fetchCreatorList() {
+            try {
+                const response = await fetch('http://localhost:5000/api/creator/list');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    creatorMockList = result.data.map(item => ({
+                        id: item._id,
+                        title: item.title,
+                        format: item.format || '장편',
+                        nation: item.nation || 'KR',
+                        currentCh: item.currentCh || 1,
+                        author: item.author || 'wnalsdud88',
+                        desc: item.desc || '',
+                        isBlind: item.isBlind || false
+                    }));
+                }
+            } catch (error) {
+                console.warn("⚠️ 오리지널 목록 서버 통신 실패 - 로컬스토리지 데이터를 유지합니다.");
+                // 💡 기본 더미 추가 로직 완전 제거!
+                const savedLocalCreators = JSON.parse(localStorage.getItem('saved_creator_list'));
+                if (savedLocalCreators) {
+                    creatorMockList = savedLocalCreators;
+                }
+            }
+            
+            localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
+            renderCreatorListViewContent();
+            updateCreatorHubBadges(); // 허브 배지 숫자도 0건으로 깔끔하게 동기화!
+        }
+
         async function createNewCreatorCard() {
             const title = document.getElementById('inputCreatorTitle').value.trim() || "무제 작품";
             const subtitle = document.getElementById('inputCreatorSubtitle').value.trim() || "제 1화";
@@ -1594,11 +1625,15 @@ function getNationCode(selectElementId) {
             }
 
             creatorMockList.unshift(newCreatorObj);
-            localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
-            creatorStudioHistory.unshift({ id: newId, title, type: 'creator', status: '연재중', share: '95%' });
             
-            updateCreatorHubBadges(); // 💡 허브 배지 숫자 즉시 동기화!
+            // 💡 로컬스토리지에 즉시 영구 저장
+            localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
+
+            creatorStudioHistory.unshift({ id: newId, title, type: 'creator', status: '연재중', share: '95%' });
             renderStudioHistoryList();
+            
+            // 💡 허브 배지 숫자 즉시 동기화!
+            updateCreatorHubBadges();
 
             closeModal('createCreatorModal');
             document.getElementById('inputCreatorTitle').value = '';
@@ -1608,68 +1643,6 @@ function getNationCode(selectElementId) {
             alert(`🎉 '${title}' 오리지널 시리즈가 연재 등록되었습니다!`);
             renderCreatorListViewContent();
         }
-
-        async function fetchCreatorList() {
-            try {
-                const response = await fetch('http://localhost:5000/api/creator/list');
-                const result = await response.json();
-                if (result.success && result.data) {
-                    creatorMockList = result.data.map(item => ({
-                        id: item._id,
-                        title: item.title,
-                        format: item.format || '장편',
-                        nation: item.nation || 'KR',
-                        currentCh: item.currentCh || 1,
-                        author: item.author || 'wnalsdud88',
-                        desc: item.desc || '',
-                        isBlind: item.isBlind || false
-                    }));
-                }
-            } catch (error) {
-                console.warn("⚠️ 오리지널 목록 서버 통신 실패 - 로컬스토리지 데이터를 유지합니다.");
-                // 💡 기본 더미 추가 로직 완전 제거!
-                const savedLocalCreators = JSON.parse(localStorage.getItem('saved_creator_list'));
-                if (savedLocalCreators) {
-                    creatorMockList = savedLocalCreators;
-                }
-            }
-            
-            localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
-            renderCreatorListViewContent();
-            updateCreatorHubBadges(); // 허브 배지 숫자도 0건으로 깔끔하게 동기화!
-        }
-
-        async function createNewCreatorCard() {
-    const title = document.getElementById('inputCreatorTitle').value || "무제 작품";
-    const content = document.getElementById('creatorContent').value;
-    const format = document.getElementById('selectCreatorFormat').value;
-    const selectedLang = document.getElementById('userLangSelect') ? document.getElementById('userLangSelect').value.toUpperCase() : 'KR';
-    const nationCode = getNationCode('userLangSelect');
-
-    try {
-        const response = await fetch('http://localhost:5000/api/creator/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, content, nation: nationCode, format, author: currentUserId })
-        });
-
-        const result = await response.json();
-        const newId = 'c_' + Date.now();
-        creatorMockList.unshift({ id: newId, title, format, nation: nationCode, currentCh: 1, author: currentUserId, desc: content, isBlind: false });
-        creatorStudioHistory.unshift({ id: newId, title, type: 'creator', status: '연재중', share: '95%' });
-        renderStudioHistoryList();
-
-        closeModal('createCreatorModal');
-        alert(`🎉 '${title}' 오리지널 시리즈가 연재 등록되었습니다!`);
-        renderCreatorListViewContent();
-    } catch (error) {
-        const newId = 'c_' + Date.now();
-        creatorMockList.unshift({ id: newId, title, format: '장편', nation: nationCode, currentCh: 1, author: currentUserId, desc: content, isBlind: false });
-        closeModal('createCreatorModal');
-        alert(`🎉 '${title}' 오리지널 작품 연재가 시작되었습니다!`);
-        renderCreatorListViewContent();
-    }
-}
 
         // 📖 실제 데이터 기반 '이전까지 스토리 보기' 동적 렌더링
         async function openPrevChaptersModal() {
