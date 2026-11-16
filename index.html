@@ -2772,74 +2772,7 @@ function getNationCode(selectElementId) {
             
             openModal('creatorReadModal');
         }
-            
-            const isMyWork = (author === currentUserId);
-            const targetCreator = creatorMockList.find(item => item.title === title);
-            if (!isMyWork && !subscribedCreators.includes(title)) {
-                subscribedCreators.push(title);
-                renderAllSubscriptionActivities();
-        }
-            
-            // 💡 네가 작성했던 원본 안전망 유지 + 실제 chapters 데이터 우선 연동
-            let chapters = (targetCreator && targetCreator.chapters && targetCreator.chapters.length > 0) 
-                ? targetCreator.chapters 
-                : [
-                    { ch: 1, title: '제 1화', author: author, content: targetCreator ? targetCreator.desc : '' }
-                ];
 
-            let html = '';
-
-            // 💡 등록된 실제 chapters 배열을 순차적으로 렌더링 (기존 뼈대 완벽 보존)
-            chapters.forEach(c => {
-                const isFirst = (c.ch === 1);
-                const priceText = isFirst ? '무료 공개' : '유료 연재 (0.1 Test-Pi)';
-                const btnLabel = isFirst ? '📖 1화 읽기' : `📖 ${c.ch}화 읽기 (0.1 Test-Pi)`;
-                const btnStyle = isFirst ? '' : 'border-color: var(--primary-cyan); color: var(--primary-cyan);';
-
-                html += `
-                    <div class="chapter-list-item">
-                        <div>
-                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${c.ch}화 : ${c.title || ''}</div>
-                            <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${c.author || author} (${priceText})</div>
-                        </div>
-                        <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px; ${btnStyle}" onclick="readCreatorChapter('${title}', ${c.ch})">${btnLabel}</button>
-                    </div>
-                `;
-            });
-
-            // 💡 독자 시점일 때의 '집필 중' 연출 분기 (네가 걱정했던 순차적 생성 및 집필 중 표시 영역)
-            if (!isMyWork) {
-                if (chapters.length <= 1) {
-                    html += `
-                        <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
-                            <div>
-                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 2화</div>
-                                <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ 2화 집필 중...</div>
-                            </div>
-                            <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
-                        </div>
-                    `;
-                } else {
-                    const nextChNum = chapters.length + 1;
-                    html += `
-                        <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
-                            <div>
-                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 ${nextChNum}화</div>
-                                <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ 집필 중...</div>
-                            </div>
-                            <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
-                        </div>
-                    `;
-                }
-            }
-
-            document.getElementById('creatorChapterListContainer').innerHTML = html;
-            
-            // 💡 오직 작가 본인에게만 '다음 회차 연재하기' 버튼 노출
-            document.getElementById('btnContinueCreatorWrite').style.display = isMyWork ? 'block' : 'none';
-            
-            openModal('creatorReadModal');
-        }
         
         // 📖 오리지널 시리즈 회차 읽기 (DB 저장된 실제 본문 연동 완료)
         function readCreatorChapter(title, chNum) {
