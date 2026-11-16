@@ -1420,7 +1420,7 @@ div[id$="-card-container"] p {
         ];
 
         let relayMockList = JSON.parse(localStorage.getItem('saved_relay_list')) || [];
-        let creatorMockList = [];
+        let creatorMockList = JSON.parse(localStorage.getItem('saved_creator_list')) || [];
 
         // 1. 구글 번역 초기화 (도메인 전체 쿠키 트래킹 활성화)
     function googleTranslateElementInit() {
@@ -1594,6 +1594,7 @@ function getNationCode(selectElementId) {
             }
 
             creatorMockList.unshift(newCreatorObj);
+            localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
             creatorStudioHistory.unshift({ id: newId, title, type: 'creator', status: '연재중', share: '95%' });
             
             updateCreatorHubBadges(); // 💡 허브 배지 숫자 즉시 동기화!
@@ -1625,12 +1626,17 @@ function getNationCode(selectElementId) {
                     }));
                 }
             } catch (error) {
-                console.warn("⚠️ 오리지널 목록 서버 통신 실패, 기본 모의 데이터를 사용합니다.");
-                if (creatorMockList.length === 0) {
-                    creatorMockList.push({ id: 'c_01', title: '심해 마법사의 공방', format: '장편', nation: 'KR', currentCh: 3, author: 'wnalsdud88', desc: '빛이 닿지 않는 심해 바닥...', isBlind: false });
+                console.warn("⚠️ 오리지널 목록 서버 통신 실패 - 로컬스토리지 데이터를 유지합니다.");
+                // 💡 기본 더미 추가 로직 완전 제거!
+                const savedLocalCreators = JSON.parse(localStorage.getItem('saved_creator_list'));
+                if (savedLocalCreators) {
+                    creatorMockList = savedLocalCreators;
                 }
             }
+            
+            localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
             renderCreatorListViewContent();
+            updateCreatorHubBadges(); // 허브 배지 숫자도 0건으로 깔끔하게 동기화!
         }
 
         async function createNewCreatorCard() {
@@ -2824,6 +2830,7 @@ function getNationCode(selectElementId) {
                     content: content
                 });
                 targetCreator.currentCh = nextCh;
+                localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
             }
 
             document.getElementById('inputCreatorContinueSubtitle').value = '';
