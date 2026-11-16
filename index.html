@@ -1822,6 +1822,15 @@ function getNationCode(selectElementId) {
             document.getElementById('drawerOverlay').classList.add('active');
             document.getElementById('sideDrawer').classList.add('active');
             updateWalletDisplay();
+            // 💡 [추가] 관리자 권한이 있는 유저(`wnalsdud88` 등)에게만 관리자 메뉴 노출!
+            const adminMenuBtn = document.getElementById('adminMenuButton'); // 햄버거 메뉴 안의 관리자 버튼 ID (또는 해당 버튼의 부모/클래스)
+            if (adminMenuBtn) {
+                if (subAdminList.includes(currentUserId)) {
+                    adminMenuBtn.style.display = 'block'; // 관리자면 보이기
+                } else {
+                    adminMenuBtn.style.display = 'none';  // 일반 유저면 숨기기!
+                }
+            }
         }
 
         function closeDrawer() {
@@ -2092,6 +2101,37 @@ function getNationCode(selectElementId) {
             const selectedNation = document.getElementById('relayCountrySelect') ? document.getElementById('relayCountrySelect').value : 'ALL';
             
             const now = Date.now();
+            const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+            let listChanged = false;
+
+            // 💡 1. 릴레이가 완결(phase === 'completed')된 후 3일이 지나면 블루 아카이브로 자동 이관!
+            relayMockList = relayMockList.filter(item => {
+                if (item.phase === 'completed' && item.completedAt) {
+                    if (now - item.completedAt >= THREE_DAYS_MS) {
+                        const totalChCount = item.chapters ? item.chapters.length : 1;
+                        archiveDataList.unshift({
+                            id: 'arc_' + item.id,
+                            title: item.title,
+                            type: 'relay',
+                            format: item.format || '소설',
+                            genre: '릴레이 완결작',
+                            flag: item.nation || '🇰🇷',
+                            nation: item.nation || 'KR',
+                            totalCh: totalChCount,
+                            isLong: totalChCount >= 11,
+                            views: 1,
+                            ratingSum: 5,
+                            ratingCount: 1,
+                            timestamp: now,
+                            desc: item.content,
+                            creatorName: item.creatorName || '집단지성 작가진',
+                            chapters: item.chapters || [{ ch: 1, title: item.title, author: item.creatorName || '익명', content: item.content, comments: [] }],
+                            reviews: []
+                        });
+                        listChanged = true;
+                        return false; // 릴레이 목록에서는 제거
+                    }
+                }
             
             // 💡 5일(120시간)이 지난 만료된 릴레이는 자동 필터링(삭제) 처리
             relayMockList = relayMockList.filter(item => {
