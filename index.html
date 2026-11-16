@@ -2102,49 +2102,22 @@ function getNationCode(selectElementId) {
             const selectedNation = document.getElementById('relayCountrySelect') ? document.getElementById('relayCountrySelect').value : 'ALL';
             
             const now = Date.now();
-            const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
             let listChanged = false;
 
-            // 💡 1. 릴레이가 완결(phase === 'completed')된 후 3일이 지나면 블루 아카이브로 자동 이관!
-            relayMockList = relayMockList.filter(item => {
-                if (item.phase === 'completed' && item.completedAt) {
-                    if (now - item.completedAt >= THREE_DAYS_MS) {
-                        const totalChCount = item.chapters ? item.chapters.length : 1;
-                        archiveDataList.unshift({
-                            id: 'arc_' + item.id,
-                            title: item.title,
-                            type: 'relay',
-                            format: item.format || '소설',
-                            genre: '릴레이 완결작',
-                            flag: item.nation || '🇰🇷',
-                            nation: item.nation || 'KR',
-                            totalCh: totalChCount,
-                            isLong: totalChCount >= 11,
-                            views: 1,
-                            ratingSum: 5,
-                            ratingCount: 1,
-                            timestamp: now,
-                            desc: item.content,
-                            creatorName: item.creatorName || '집단지성 작가진',
-                            chapters: item.chapters || [{ ch: 1, title: item.title, author: item.creatorName || '익명', content: item.content, comments: [] }],
-                            reviews: []
-                        });
-                        listChanged = true;
-                        return false; // 릴레이 목록에서는 제거
-                    }
-                }
-                
-                // 기존 5일 마감 만료 체크
+            // 💡 마감 시간(5일)이 지나면 이어쓰기(write) 단계에서 자동으로 투표(vote) 단계로 전환!
+            relayMockList.forEach(item => {
                 if (!item.createdAt) {
                     item.createdAt = now;
                 }
-                const timeCheck = calculateRemainingTime(item.createdAt);
-                return !timeCheck.expired;
+                const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+                if (item.phase === 'write' && (now - item.createdAt >= FIVE_DAYS_MS)) {
+                    item.phase = 'vote'; // 5일 지나면 자동으로 투표 모드로 전환
+                    listChanged = true;
+                }
             });
 
             if (listChanged) {
                 localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-                updateRelayHubBadges();
             }
 
             let filteredRelayList = relayMockList.filter(item => {
@@ -2164,35 +2137,36 @@ function getNationCode(selectElementId) {
             const isListMode = container.classList.contains('board-list-container');
 
             filteredRelayList.forEach(item => {
-    const isVote = item.phase === 'vote';
-    const actionText = isVote ? '후보작 열람 & 투표 (무료)' : '이어쓰기 참여 (1.0 Test-Pi)';
-    const timerInfo = calculateRemainingTime(item.createdAt);
-    const participantStatus = item.progress || '1/5 참여중';
+                const isVote = item.phase === 'vote';
+                // 💡 투표 단계일 때는 절대 이어쓰기 버튼이 안 뜨고 투표 버튼만 노출!
+                const actionText = isVote ? '🗳️ 후보작 열람 & 투표 (무료)' : `✍️ 이어쓰기 참여 (1.0 ${CURRENCY_UNIT})`;
+                const timerInfo = calculateRemainingTime(item.createdAt);
+                const participantStatus = item.progress || '1/5 참여중';
 
-    if (isListMode) {
-        html += `
-            <div class="board-list-row" onclick="handleListCardClick('${item.id}')">
-                <span class="board-col-num">${item.nation}</span>
-                <span class="board-col-title">${item.title}</span>
-                <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
-                <span class="board-col-action"><button class="board-mini-btn">${actionText}</button></span>
-            </div>
-        `;
-    } else {
-        html += `
-            <div class="card" onclick="handleListCardClick('${item.id}')">
-                <div class="tag-group" style="justify-content: space-between; align-items: center;">
-                    <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
-                    <span class="tag tag-meta">${item.format}</span>
-                </div>
-                <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
-                <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
-                <div class="timer-info" style="color:var(--warning-orange);">⏳ 남은 마감 시간: ${timerInfo.text} (5일 제한)</div>
-                <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">${actionText}</button>
-            </div>
-        `;
-    }
-});
+                if (isListMode) {
+                    html += `
+                        <div class="board-list-row" onclick="handleListCardClick('${item.id}')">
+                            <span class="board-col-num">${item.nation}</span>
+                            <span class="board-col-title">${item.title}</span>
+                            <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
+                            <span class="board-col-action"><button class="board-mini-btn">${actionText}</button></span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="card" onclick="handleListCardClick('${item.id}')">
+                            <div class="tag-group" style="justify-content: space-between; align-items: center;">
+                                <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
+                                <span class="tag tag-meta">${item.format}</span>
+                            </div>
+                            <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
+                            <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
+                            <div class="timer-info" style="color:var(--warning-orange);">⏳ 남은 마감 시간: ${timerInfo.text}</div>
+                            <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">${actionText}</button>
+                        </div>
+                    `;
+                }
+            });
             container.innerHTML = html;
         }
 
@@ -2568,6 +2542,21 @@ function getNationCode(selectElementId) {
                 alert("해당 스토리 데이터를 찾을 수 없습니다.");
                 return;
             }
+            document.getElementById('activeRelayId').value = targetRelay.id;
+            document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
+            document.getElementById('integratedTitle').innerText = targetRelay.title;
+            document.getElementById('integratedDesc').innerText = `"${targetRelay.content}"`;
+            
+            const btnContainer = document.getElementById('integratedButtonContainer');
+            
+            // 💡 핵심 보안: 이미 투표 단계(`vote`)로 넘어갔다면 이어쓰기 창 진입을 원천 차단하고 무조건 투표 모달만 띄움!
+            if (targetRelay.phase === 'vote') {
+                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
+            } else {
+                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%;" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
+            }
+            openModal('integratedRelayModal');
+        }
 
             // 💡 상세 모달 기본 정보 세팅
             document.getElementById('activeRelayId').value = targetRelay.id;
