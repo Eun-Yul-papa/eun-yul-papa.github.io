@@ -2542,29 +2542,14 @@ function getNationCode(selectElementId) {
                 alert("해당 스토리 데이터를 찾을 수 없습니다.");
                 return;
             }
-            document.getElementById('activeRelayId').value = targetRelay.id;
-            document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
-            document.getElementById('integratedTitle').innerText = targetRelay.title;
-            document.getElementById('integratedDesc').innerText = `"${targetRelay.content}"`;
-            
-            const btnContainer = document.getElementById('integratedButtonContainer');
-            
-            // 💡 핵심 보안: 이미 투표 단계(`vote`)로 넘어갔다면 이어쓰기 창 진입을 원천 차단하고 무조건 투표 모달만 띄움!
-            if (targetRelay.phase === 'vote') {
-                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
-            } else {
-                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%;" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
-            }
-            openModal('integratedRelayModal');
-        }
 
-            // 💡 상세 모달 기본 정보 세팅
+            // 💡 1. 상세 모달 기본 정보 세팅
             document.getElementById('activeRelayId').value = targetRelay.id;
             document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
             document.getElementById('integratedTitle').innerText = targetRelay.title;
             document.getElementById('integratedDesc').innerText = `"${targetRelay.content}"`;
             
-            // 💡 '이전까지 스토리 보기' 영역에 진짜 chapters 데이터 동적 렌더링
+            // 💡 2. '이전까지 스토리 보기' 영역에 진짜 chapters 데이터 동적 렌더링
             const storyBodyContainer = document.getElementById('integratedStoryBody');
             if (storyBodyContainer) {
                 if (targetRelay.chapters && targetRelay.chapters.length > 0) {
@@ -2590,12 +2575,12 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 하단 버튼 동적 분기
+            // 💡 3. 하단 버튼 동적 분기 (핵심 보안: 투표 단계면 이어쓰기 버튼 차단하고 투표 버튼만 노출!)
             const btnContainer = document.getElementById('integratedButtonContainer');
             if (targetRelay.phase === 'vote') {
-                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange);" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
+                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
             } else {
-                btnContainer.innerHTML = `<button class="btn btn-primary" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 Test-Pi)</button>`;
+                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%;" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
             }
 
             openModal('integratedRelayModal');
