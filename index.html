@@ -2781,20 +2781,19 @@ function getNationCode(selectElementId) {
             const targetCreator = creatorMockList.find(item => item.title === activeCreatorTitle);
             const nextChNum = targetCreator ? (targetCreator.currentCh + 1) : 2;
             
-            // 작품 포맷이 '장편'인지 여부 파악 (기본값 장편 혹은 포맷 문자열 확인)
+            // 💡 단편인지 장편인지 명확하게 판별 (포맷 문자열에 '단편'이 포함되어 있으면 단편으로 확정!)
             const formatStr = targetCreator ? (targetCreator.format || '') : '';
-            const isLongFormat = formatStr.includes('장편') || (!formatStr.includes('단편') && true);
+            const isShortFormat = formatStr.includes('단편'); 
 
             const wrapper = document.getElementById('creatorFinalCheckboxWrapper');
             if (wrapper) {
                 // 📌 조건 적용:
-                // - 단편: 6화에서 10화 사이일 때만 노출 (!isLongFormat && nextChNum >= 6 && nextChNum <= 10)
-                // - 장편: 11화 이상부터 계속 노출 (isLongFormat && nextChNum >= 11)
-                if ((!isLongFormat && nextChNum >= 6 && nextChNum <= 10) || (isLongFormat && nextChNum >= 11)) {
+                // - 단편 (5~10화): 6화부터 완결 체크박스 노출 (isShortFormat && nextChNum >= 6)
+                // - 장편 (10+화): 11화 이상부터 완결 체크박스 노출 (!isShortFormat && nextChNum >= 11)
+                if ((isShortFormat && nextChNum >= 6) || (!isShortFormat && nextChNum >= 11)) {
                     wrapper.style.display = 'flex';
                 } else {
                     wrapper.style.display = 'none';
-                    // 창을 열 때 체크박스 초기화
                     const chkBox = document.getElementById('checkFinalChapterCreator');
                     if (chkBox) chkBox.checked = false;
                 }
