@@ -2702,18 +2702,19 @@ function getNationCode(selectElementId) {
                 return;
             }
 
-            // 💡 1. 크리에이터 스튜디오 참여 이력에 자동 추가 (기존 기능 완벽 사수!)
+            // 💡 크리에이터 스튜디오 참여 이력 자동 추가
             if (!creatorStudioHistory.some(h => h.id === relayId)) {
                 creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: '집필참여', share: '지분산정중' });
                 renderStudioHistoryList();
             }
 
             if (targetRelay) {
-                // 만약 아직 chapters가 없다면 최초 1화(오리지널 개설 내용)를 먼저 배열에 박아둠
                 if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
                     targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
                 }
                 const nextCh = targetRelay.chapters.length + 1;
+                
+                // 이번 회차의 이어쓰기 후보작으로 추가
                 targetRelay.chapters.push({
                     ch: nextCh,
                     title: subtitle,
@@ -2723,33 +2724,28 @@ function getNationCode(selectElementId) {
                 });
                 targetRelay.currentCh = nextCh;
                 
-                // 💡 2. 완결 여부 및 3화부터 투표 단계 진입 기획 반영!
                 if (isFinal) {
                     targetRelay.phase = 'completed';
                     targetRelay.completedAt = Date.now();
                 } else {
-                    // - 등록된 화수가 3화 이상부터라면: 본격적인 투표/경쟁('vote') 체제 가동!
-                    // - 방금 등록된 화수가 2화라면(1화 개설 직후): 다음 3화를 쓰기 전까지 프리하게 이어쓰기('write') 허용
-                    if (nextCh >= 3) {
-                        targetRelay.phase = 'vote';
-                        targetRelay.createdAt = Date.now(); // 투표 타이머 리셋
-                    } else {
-                        targetRelay.phase = 'write';
-                    }
+                    // 💡 핵심 기획 반영: 
+                    // 2화든 3화든 매번 이어쓰기 후보가 제출되면, 
+                    // 이제부터는 해당 회차의 '투표(vote)' 단계로 돌입하여 독자들이 투표할 수 있게 함!
+                    targetRelay.phase = 'vote';
+                    targetRelay.createdAt = Date.now(); // 투표 마감 타이머 리셋
                 }
                 
-                // 💡 3. 제출 완료된 임시저장 원고 삭제 (기존 기능 완벽 사수!)
+                // 임시저장 원고 찌꺼기 삭제
                 if (typeof relayDrafts !== 'undefined') {
                     relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
                     localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
                 }
 
-                // 💡 4. 릴레이 목록 로컬스토리지 동기화 및 스튜디오 리스트 갱신
                 localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
                 renderStudioHistoryList();
             }
 
-            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다! 3일 후 블루 아카이브로 자동 이관됩니다." : (targetRelay.phase === 'vote' ? "🎉 이어쓰기 후보작이 제출되었습니다! 이제 투표 기간이 시작됩니다." : "🎉 2화 이어쓰기가 성공적으로 등록되었습니다!"));
+            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다!" : "🎉 이어쓰기 후보작이 제출되었습니다! 이제 해당 회차 투표가 시작됩니다.");
             closeModal('writerModal');
             renderRelayListContent();
         }
@@ -3180,7 +3176,26 @@ function getNationCode(selectElementId) {
             alert("💬 자유게시판에 글이 등록되었습니다!");
             renderFreeBoardList(1); // 새 글 등록 시 1페이지로 이동
         }
-        
+
+        function openReadVoteModal(relayId) {
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) {
+                alert("해당 스토리 데이터를 찾을 수 없습니다.");
+                return;
+            }
+            
+            // 투표 모달 안의 타이틀이나 후보 리스트를 그려주는 로직
+            const voteTitleEl = document.getElementById('voteModalTitle');
+            if (voteTitleEl) voteTitleEl.innerText = targetRelay.title;
+
+            // 후보작 목록 렌더링 함수가 있다면 여기서 호출
+            if (typeof renderVoteCandidateList === 'function') {
+                renderVoteCandidateList(targetRelay);
+            }
+
+            // 투표 모달 열기 (모달 ID는 프로젝트 내 모달 이름에 맞게 조정)
+            openModal('readVoteModal');
+        }
     </script>
 </body>
 </html>
