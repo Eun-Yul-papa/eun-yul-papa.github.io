@@ -2694,15 +2694,21 @@ function getNationCode(selectElementId) {
             const relayId = document.getElementById('activeRelayId').value;
             const subtitle = document.getElementById('writerSubtitleInput').value.trim() || "이어지는 이야기";
             const content = document.getElementById('writerInputContent').value.trim();
+            const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite'].checked : false;
             const targetRelay = relayMockList.find(r => r.id === relayId);
 
-            // 💡 크리에이터 스튜디오 참여 이력에 자동 추가   
+            if (!content) {
+                alert("이어쓰기 본문 내용을 입력해주세요.");
+                return;
+            }
+
+            // 💡 1. 크리에이터 스튜디오 참여 이력에 자동 추가 (기존 기능 완벽 사수!)
             if (!creatorStudioHistory.some(h => h.id === relayId)) {
                 creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: '집필참여', share: '지분산정중' });
                 renderStudioHistoryList();
             }
 
-            if (targetRelay && content) {
+            if (targetRelay) {
                 // 만약 아직 chapters가 없다면 최초 1화(오리지널 개설 내용)를 먼저 배열에 박아둠
                 if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
                     targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
@@ -2712,19 +2718,38 @@ function getNationCode(selectElementId) {
                     ch: nextCh,
                     title: subtitle,
                     author: currentUserId,
-                    content: content
+                    content: content,
+                    votes: 0
                 });
                 targetRelay.currentCh = nextCh;
                 
-                // 제출 완료된 임시저장 원고 삭제
-                relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
-                localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
-                // 💡 [추가] 이어쓰기가 반영된 릴레이 목록을 로컬스토리지에 동기화
+                // 💡 2. 완결 여부 및 3화부터 투표 단계 진입 기획 반영!
+                if (isFinal) {
+                    targetRelay.phase = 'completed';
+                    targetRelay.completedAt = Date.now();
+                } else {
+                    // - 등록된 화수가 3화 이상부터라면: 본격적인 투표/경쟁('vote') 체제 가동!
+                    // - 방금 등록된 화수가 2화라면(1화 개설 직후): 다음 3화를 쓰기 전까지 프리하게 이어쓰기('write') 허용
+                    if (nextCh >= 3) {
+                        targetRelay.phase = 'vote';
+                        targetRelay.createdAt = Date.now(); // 투표 타이머 리셋
+                    } else {
+                        targetRelay.phase = 'write';
+                    }
+                }
+                
+                // 💡 3. 제출 완료된 임시저장 원고 삭제 (기존 기능 완벽 사수!)
+                if (typeof relayDrafts !== 'undefined') {
+                    relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
+                    localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
+                }
+
+                // 💡 4. 릴레이 목록 로컬스토리지 동기화 및 스튜디오 리스트 갱신
                 localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
                 renderStudioHistoryList();
             }
 
-            alert("🎉 이어쓰기 원고가 성공적으로 제출되어 누적 회차에 반영되었습니다!");
+            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다! 3일 후 블루 아카이브로 자동 이관됩니다." : (targetRelay.phase === 'vote' ? "🎉 이어쓰기 후보작이 제출되었습니다! 이제 투표 기간이 시작됩니다." : "🎉 2화 이어쓰기가 성공적으로 등록되었습니다!"));
             closeModal('writerModal');
             renderRelayListContent();
         }
