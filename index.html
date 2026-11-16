@@ -1369,6 +1369,7 @@ div[id$="-card-container"] p {
     <script>
         const MIN_BYTES = 1500;
         const MAX_BYTES = 6000;
+        const CURRENCY_UNIT = "Test-Pi"; // 💡 나중에 정식 런칭 시 "Pi"로만 바꾸면 전체 일괄 변경!
         
         let currentUserId = "wnalsdud88"; 
         let subAdminList = ["wnalsdud88"]; 
@@ -2154,6 +2155,45 @@ function getNationCode(selectElementId) {
         function renderCreatorListViewContent() {
             const container = document.getElementById('creator-card-container');
             const selectedNation = document.getElementById('creatorCountrySelect') ? document.getElementById('creatorCountrySelect').value : 'ALL';
+            const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            let listChanged = false;
+
+            // 💡 1. 완결 후 3일(72시간)이 지난 작품은 자동으로 블루 아카이브로 이관!
+            creatorMockList = creatorMockList.filter(item => {
+                if (item.isCompleted && item.completedAt) {
+                    if (now - item.completedAt >= THREE_DAYS_MS) {
+                        const totalChCount = item.chapters ? item.chapters.length : item.currentCh;
+                        archiveDataList.unshift({
+                            id: 'arc_' + item.id,
+                            title: item.title,
+                            type: 'creator',
+                            format: item.format || '소설',
+                            genre: '오리지널 완결작',
+                            flag: item.nation || '🇰🇷',
+                            nation: item.nation || 'KR',
+                            totalCh: totalChCount,
+                            isLong: totalChCount >= 11,
+                            views: 1,
+                            ratingSum: 5,
+                            ratingCount: 1,
+                            timestamp: now,
+                            desc: item.desc,
+                            creatorName: item.author,
+                            chapters: item.chapters || [{ ch: 1, title: '제 1화', author: item.author, content: item.desc, comments: [] }],
+                            reviews: []
+                        });
+                        listChanged = true;
+                        return false; // 오리지널 목록에서는 제거
+                    }
+                }
+                return true;
+            });
+
+            if (listChanged) {
+                localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
+                updateCreatorHubBadges();
+            }
 
             let filteredList = creatorMockList.filter(item => {
                 if (item.isBlind) return false;
@@ -2170,11 +2210,24 @@ function getNationCode(selectElementId) {
             const isListMode = container.classList.contains('board-list-container');
 
             filteredList.forEach(item => {
+                // 💡 완결 상태에 따른 뱃지 및 3일 카운트다운 계산
+                let statusBadgeHtml = `<span class="tag tag-creator">🟢 연재중</span>`;
+                let countdownHtml = '';
+
+                if (item.isCompleted && item.completedAt) {
+                    statusBadgeHtml = `<span class="tag" style="background:rgba(251,191,36,0.2); color:var(--warning-orange); border:1px solid var(--warning-orange);">🏁 완결됨</span>`;
+                    const remain = (item.completedAt + THREE_DAYS_MS) - now;
+                    const d = Math.floor(remain / (1000 * 60 * 60 * 24));
+                    const h = Math.floor((remain % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const m = Math.floor((remain % (1000 * 60 * 60)) / (1000 * 60));
+                    countdownHtml = `<div style="font-size: 0.78rem; color: var(--warning-orange); font-weight: 700; margin-bottom: 10px;">⏳ ${d}일 ${h}시간 ${m}분 뒤 블루 아카이브로 이동됩니다</div>`;
+                }
+
                 if (isListMode) {
                     html += `
                         <div class="board-list-row" onclick="openCreatorReadModal('${item.title}', ${item.currentCh}, '${item.author}')">
                             <span class="board-col-num">${item.nation || 'KR'}</span>
-                            <span class="board-col-title">${item.title}</span>
+                            <span class="board-col-title">${item.isCompleted ? '[완결] ' : ''}${item.title}</span>
                             <span class="board-col-meta">작가: ${item.author}</span>
                             <span class="board-col-action"><button class="board-mini-btn">작품 보기</button></span>
                         </div>
@@ -2182,13 +2235,14 @@ function getNationCode(selectElementId) {
                 } else {
                     html += `
                         <div class="card" onclick="openCreatorReadModal('${item.title}', ${item.currentCh}, '${item.author}')">
-                            <div class="tag-group"><span class="tag tag-creator">🟢 연재중</span></div>
+                            <div class="tag-group">${statusBadgeHtml}</div>
                             <div class="title-with-flag"><span class="flag-badge">${item.nation || 'KR'}</span><h3>${item.title}</h3></div>
                             <div style="font-size: 0.82rem; color: var(--success-green); font-weight: 700; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
                                 <span>작가 : ${item.author}</span>
                                 <button class="page-btn" style="padding:4px 10px; font-size:0.75rem; border-color:var(--success-green); color:var(--success-green);" onclick="event.stopPropagation(); toggleFollow('${item.author}')">+ 팔로우</button>
                             </div>
                             <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.desc}"</p>
+                            ${countdownHtml}
                             <button class="btn btn-primary" onclick="event.stopPropagation(); openCreatorReadModal('${item.title}', ${item.currentCh}, '${item.author}')">작품 보기</button>
                         </div>
                     `;
@@ -2664,6 +2718,63 @@ function getNationCode(selectElementId) {
             
             const isMyWork = (author === currentUserId);
             const targetCreator = creatorMockList.find(item => item.title === title);
+            const isCompleted = targetCreator ? targetCreator.isCompleted : false;
+
+            if (!isMyWork && !subscribedCreators.includes(title)) {
+                subscribedCreators.push(title);
+                renderAllSubscriptionActivities();
+            }
+            
+            let chapters = (targetCreator && targetCreator.chapters && targetCreator.chapters.length > 0) 
+                ? targetCreator.chapters 
+                : [{ ch: 1, title: '제 1화', author: author, content: targetCreator ? targetCreator.desc : '' }];
+
+            let html = '';
+
+            chapters.forEach(c => {
+                const isFirst = (c.ch === 1);
+                // 💡 요청대로 작가명 옆 '(유료 연재 0.1 Test-Pi)' 깔끔하게 제거! 버튼에만 가격 표기
+                const btnLabel = isFirst ? '📖 1화 읽기 (무료)' : `📖 ${c.ch}화 읽기 (0.1 ${CURRENCY_UNIT})`;
+                const btnStyle = isFirst ? '' : 'border-color: var(--primary-cyan); color: var(--primary-cyan);';
+
+                html += `
+                    <div class="chapter-list-item">
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${c.ch}화 : ${c.title || ''}</div>
+                            <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${c.author || author}</div>
+                        </div>
+                        <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px; ${btnStyle}" onclick="readCreatorChapter('${title}', ${c.ch})">${btnLabel}</button>
+                    </div>
+                `;
+            });
+
+            // 💡 완결되지 않았고 독자 입장일 때만 '집필 중' 표시
+            if (!isMyWork && !isCompleted) {
+                const nextChNum = chapters.length + 1;
+                html += `
+                    <div class="chapter-list-item" style="opacity: 0.7; cursor: default;">
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-sub);">제 ${nextChNum}화</div>
+                            <div style="font-size: 0.78rem; color: var(--warning-orange);">⏳ ${nextChNum}화 집필 중...</div>
+                        </div>
+                        <span style="font-size: 0.78rem; color: var(--text-sub); font-weight: 600;">준비중</span>
+                    </div>
+                `;
+            }
+
+            document.getElementById('creatorChapterListContainer').innerHTML = html;
+            
+            // 💡 작가 본인이고, 아직 완결되지 않았을 때만 '다음 회차 연재하기' 버튼 노출!
+            const continueBtn = document.getElementById('btnContinueCreatorWrite');
+            if (continueBtn) {
+                continueBtn.style.display = (isMyWork && !isCompleted) ? 'block' : 'none';
+            }
+            
+            openModal('creatorReadModal');
+        }
+            
+            const isMyWork = (author === currentUserId);
+            const targetCreator = creatorMockList.find(item => item.title === title);
             if (!isMyWork && !subscribedCreators.includes(title)) {
                 subscribedCreators.push(title);
                 renderAllSubscriptionActivities();
@@ -2784,6 +2895,7 @@ function getNationCode(selectElementId) {
         function submitCreatorContinueChapter() {
             const subtitle = document.getElementById('inputCreatorContinueSubtitle').value.trim() || "다음 이야기";
             const content = document.getElementById('inputCreatorContinueContent').value.trim();
+            const isFinal = document.getElementById('checkFinalChapterCreator').checked; // 💡 완결 체크 여부 확인
             const targetCreator = creatorMockList.find(item => item.title === activeCreatorTitle);
 
             if (!content) {
@@ -2803,16 +2915,28 @@ function getNationCode(selectElementId) {
                     content: content
                 });
                 targetCreator.currentCh = nextCh;
+
+                // 💡 완결 체크했을 경우 상태 변경 및 3일 유예 타이머 시작!
+                if (isFinal) {
+                    targetCreator.isCompleted = true;
+                    targetCreator.completedAt = Date.now();
+                }
+
                 localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
             }
 
             document.getElementById('inputCreatorContinueSubtitle').value = '';
             document.getElementById('inputCreatorContinueContent').value = '';
+            document.getElementById('checkFinalChapterCreator').checked = false;
             
-            alert("🚀 다음 회차 연재가 성공적으로 등록되었습니다!");
+            if (isFinal) {
+                alert("🏁 축하합니다! 작품이 완결 처리되었습니다.\n구독자들을 위해 3일간 오리지널 목록에 유지된 후 블루 아카이브로 자동 이관됩니다!");
+            } else {
+                alert("🚀 다음 회차 연재가 성공적으로 등록되었습니다!");
+            }
+            
             closeModal('creatorContinueModal');
-            
-            // 등록 직후 회차 목록 모달을 다시 열어서 갱신된 목록 보여주기
+            renderCreatorListViewContent(); // 목록 상태(완결됨 & 카운트다운) 즉시 반영
             openCreatorReadModal(activeCreatorTitle, targetCreator ? targetCreator.currentCh : 2, currentUserId);
         }
 
