@@ -2767,7 +2767,7 @@ function getNationCode(selectElementId) {
                 targetWritingCh = chapters[chapters.length - 1].ch;
             }
 
-            // 중복 참여 차단 방어선
+            // 💡 [핵심 수정] 현재 챕터 번호에 대해서만 내 참여 여부 검사
             const alreadySubmitted = chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId);
             if (alreadySubmitted) {
                 alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
@@ -2790,7 +2790,8 @@ function getNationCode(selectElementId) {
             const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
             const wrapper = document.getElementById('writerFinalCheckboxWrapper');
             if (wrapper) {
-                if ((!isLongFormat && targetWritingCh >= 6 && targetWritingCh <= 10) || (isLongFormat && targetWritingCh >= 11)) {
+                if ((!isLongFormat && targetWritingCh >= 6 && targetWritingCh <= 10) || (isLongFormat && targetWritingCh >= 1:// ... 생략 가능하므로 아래 통째로 복사해 쓰세요
+                )) {
                     wrapper.style.display = 'flex';
                 } else {
                     wrapper.style.display = 'none';
@@ -2874,13 +2875,21 @@ function getNationCode(selectElementId) {
                 targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName || currentUserId, content: targetRelay.content || '' }];
             }
 
-            if (!targetRelay.currentCh) {
-                targetRelay.currentCh = 2;
-            }
-            const targetWritingCh = targetRelay.currentCh;
+            const chapters = targetRelay.chapters;
+            let latestConfirmedCh = chapters[0];
+            let targetWritingCh = 2;
 
-            // 중복 참여 엄격 차단
-            const alreadySubmitted = targetRelay.chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId);
+            const maxCh = Math.max(...chapters.map(c => c.ch));
+            const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh);
+            if (confirmedChapters.length > 0) {
+                latestConfirmedCh = confirmedChapters[confirmedChapters.length - 1];
+                targetWritingCh = latestConfirmedCh.ch + 1;
+            } else if (chapters.length > 1) {
+                targetWritingCh = chapters[chapters.length - 1].ch;
+            }
+
+            // 💡 [핵심 수정] "현재 작성 중인 챕터 번호(targetWritingCh)"에 내가 이미 제출했는지만 엄격하게 검사! (1화 개설작 무시)
+            const alreadySubmitted = chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId);
             if (alreadySubmitted) {
                 alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
                 closeModal('writerModal');
@@ -2902,7 +2911,7 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 후보작으로 새 챕터 객체 추가 (고정된 targetWritingCh 사용)
+            // 후보작으로 새 챕터 추가
             targetRelay.chapters.push({
                 ch: targetWritingCh,
                 title: subtitle,
