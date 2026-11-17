@@ -3204,10 +3204,16 @@ function getNationCode(selectElementId) {
             textInput.value = '';
             alert("💬 댓글이 등록되었습니다!");
         }
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function openModal(id) { 
+            const modal = document.getElementById(id);
+            if (modal) modal.style.display = 'flex'; 
+        }
 
-        
+        function closeModal(id) { 
+            const modal = document.getElementById(id);
+            if (modal) modal.style.display = 'none'; 
+        }
+
         // ⏳ 투표 기간은 정확히 3일(72시간)로 설정!
         function calculateRemainingTime(createdAtTimestamp, isVotePhase = false) {
             const DURATION_MS = isVotePhase ? (3 * 24 * 60 * 60 * 1000) : (5 * 24 * 60 * 60 * 1000);
@@ -3240,7 +3246,7 @@ function getNationCode(selectElementId) {
             if (voteBadge) voteBadge.innerText = `${voteList.length}건`;
         }
 
-       // 자유게시판 자바스크립트 함수 
+        let freeBoardPosts = [];
         let freeBoardCurrentPage = 1;
         const FREE_BOARD_PER_PAGE = 20;
 
@@ -3278,7 +3284,6 @@ function getNationCode(selectElementId) {
                 `;
             });
 
-            // 💡 20개 초과 시 페이지네이션 바 렌더링
             if (totalPages > 1) {
                 html += `<div style="display: flex; justify-content: center; gap: 6px; margin-top: 12px; flex-wrap: wrap;">`;
                 if (freeBoardCurrentPage > 1) {
@@ -3319,7 +3324,7 @@ function getNationCode(selectElementId) {
             document.getElementById('inputFreeContent').value = '';
             
             alert("💬 자유게시판에 글이 등록되었습니다!");
-            renderFreeBoardList(1); // 새 글 등록 시 1페이지로 이동
+            renderFreeBoardList(1);
         }
 
         function openReadVoteModal(relayId) {
@@ -3332,11 +3337,9 @@ function getNationCode(selectElementId) {
             const voteTitleEl = document.getElementById('voteModalTitle');
             if (voteTitleEl) voteTitleEl.innerText = `${targetRelay.title} - 후보 투표소`;
 
-            // 💡 [솔루션 적용] 투표 모달 상단에는 "직전까지 확정된 연재분(또는 최신 확정 회차)"만 깔끔하게 표시
             const storyContentEl = document.getElementById('voteModalStoryContent') || document.getElementById('voteModalStoryBody');
             if (storyContentEl) {
                 const chapters = targetRelay.chapters || [];
-                // 투표 대상이 되기 직전의 확정 회차 탐색
                 const latestConfirmedCh = chapters.length > 1 ? chapters[chapters.length - 2] : chapters[0];
                 if (latestConfirmedCh) {
                     storyContentEl.innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || ''}]\n(작가: ${latestConfirmedCh.author})\n\n${latestConfirmedCh.content}`;
@@ -3345,7 +3348,6 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 후보작 목록 렌더링 함수 호출
             if (typeof renderVoteCandidateList === 'function') {
                 renderVoteCandidateList(targetRelay);
             }
@@ -3358,10 +3360,8 @@ function getNationCode(selectElementId) {
             if (!container) return;
 
             const chapters = targetRelay.chapters || [];
-            // 현재 투표 대상이 되는 후보작들 필터링 (최신에 추가된 챕터들)
             let candidates = chapters.filter(c => c.ch >= targetRelay.currentCh || c.votes !== undefined);
             
-            // 💡 만약 혼자 테스트해서 후보 필터링이 비어버리면, 가장 마지막에 쓴 글을 후보로 강제 지정하여 테스트 가능하게 함!
             if (candidates.length === 0 && chapters.length > 0) {
                 candidates.push(chapters[chapters.length - 1]);
             }
