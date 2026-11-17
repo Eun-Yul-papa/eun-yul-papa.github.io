@@ -1482,14 +1482,37 @@ function getNationCode(selectElementId) {
             }
         }
 
-        // 예: 후보작 투표 완료 시 실행되는 함수 안쪽
-        function submitVoteForCandidate(relayId, relayTitle, candidateName) {
-            if (!userVotedRelays.some(v => v.id === relayId)) {
-                userVotedRelays.push({ id: relayId, title: relayTitle, choice: candidateName });
-                renderAllSubscriptionActivities(); // 나의 구독 활동 실시간 갱신
+        function submitVoteForCandidate(relayId, candidateCh) {
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) return;
+
+            // 💡 중복 투표 방지 체크 (로컬스토리지나 배열로 유저별 투표 기록 관리)
+            const voteCheckKey = `voted_${relayId}_ch_${targetRelay.currentCh}_${currentUserId}`;
+            if (localStorage.getItem(voteCheckKey)) {
+                alert("⚠️ 이미 이 회차에 투표를 완료하셨습니다! 중복 투표는 하실 수 없습니다.");
+                return;
             }
-            alert(`🎉 '${candidateName}' 후보에 투표가 완료되었습니다!`);
-            closeModal('candidateReaderModal');
+
+            // 해당 후보작 찾아서 득표수 1 증가
+            const candidate = targetRelay.chapters.find(c => c.ch === candidateCh);
+            if (candidate) {
+                candidate.votes = (candidate.votes || 0) + 1;
+            }
+
+            // 투표 완료 기록 저장
+            localStorage.setItem(voteCheckKey, "true");
+            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+
+            // 나의 구독 활동에도 반영
+            if (!userVotedRelays.some(v => v.id === relayId)) {
+                userVotedRelays.push({ id: relayId, title: targetRelay.title, choice: candidate ? candidate.title : '후보작' });
+                renderAllSubscriptionActivities();
+            }
+
+            alert(`🎉 투표가 성공적으로 반영되었습니다! 현재 득표수: ${candidate.votes}표`);
+            
+            // 모달 새로고침 렌더링
+            renderVoteCandidateList(targetRelay);
         }
 
         function renderAlarmList() {
@@ -2542,44 +2565,53 @@ function getNationCode(selectElementId) {
                 return;
             }
 
-            // 💡 1. 상세 모달 기본 정보 세팅
             document.getElementById('activeRelayId').value = targetRelay.id;
             document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
             document.getElementById('integratedTitle').innerText = targetRelay.title;
-            document.getElementById('integratedDesc').innerText = `"${targetRelay.content}"`;
             
-            // 💡 2. '이전까지 스토리 보기' 영역에 진짜 chapters 데이터 동적 렌더링
+            // 1. 상단: 직전까지 채택된 누적 본문 표시
             const storyBodyContainer = document.getElementById('integratedStoryBody');
             if (storyBodyContainer) {
-                if (targetRelay.chapters && targetRelay.chapters.length > 0) {
-                    let chaptersHtml = '';
-                    targetRelay.chapters.forEach(ch => {
-                        chaptersHtml += `
-                            <div style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
-                                <div style="color: var(--primary-cyan); font-weight: 700; margin-bottom: 5px;">
-                                    제 ${ch.ch}화 : ${ch.title}
-                                </div>
-                                <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 8px;">
-                                    (작가 : ${ch.author || targetRelay.creatorName})
-                                </div>
-                                <div style="color: #fff; line-height: 1.6; white-space: pre-wrap;">
-                                    ${ch.content}
-                                </div>
+                let accumulatedText = "";
+                const chapters = targetRelay.chapters || [];
+                if (chapters.length > 0) {
+                    const latestCh = chapters[chapters.length - 1];
+                    accumulatedText = `[현재 연재된 직전 본문 - 제 ${latestCh.ch}화 : ${latestCh.title}]\n${latestCh.content}`;
+                } else {
+                    accumulatedText = targetRelay.content;
+                }
+                storyBodyContainer.innerText = accumulatedText;
+            }
+
+            // 2. 중단: 다른 경쟁자들이 작성한 이어쓰기 글 목록 ('소제목 + 작가명')
+            const candidatePreviewContainer = document.getElementById('integratedCandidatePreviewContainer');
+            if (candidatePreviewContainer) {
+                const candidates = chapters.filter(c => c.ch >= targetRelay.currentCh);
+                if (candidates.length > 0) {
+                    let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:var(--success-green); margin-bottom:6px;">✍️ 현재 집필 경쟁 중인 이어쓰기 목록 (${candidates.length}/5명)</div>`;
+                    candidates.forEach(c => {
+                        candHtml += `
+                            <div class="chapter-list-item" onclick="openCandidateDetailReader('${targetRelay.id}', ${c.ch})" style="padding: 8px 12px; margin-bottom: 6px; font-size: 0.8rem;">
+                                <div><b>${c.title || '무제'}</b> <span style="color:var(--text-sub);">(작가: ${c.author})</span></div>
+                                <span style="color:var(--primary-cyan); font-size:0.75rem;">보기 ➔</span>
                             </div>
                         `;
                     });
-                    storyBodyContainer.innerHTML = chaptersHtml;
+                    candidatePreviewContainer.innerHTML = candHtml;
                 } else {
-                    storyBodyContainer.innerHTML = `<div style="color: #fff; line-height: 1.6; white-space: pre-wrap;">${targetRelay.content || "등록된 본문 내용이 없습니다."}</div>`;
+                    candidatePreviewContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--text-sub); padding:6px 0;">아직 등록된 이어쓰기 후보가 없습니다. 첫 도전자가 되어보세요!</div>`;
                 }
             }
 
-            // 💡 3. 하단 버튼 동적 분기 (핵심 보안: 투표 단계면 이어쓰기 버튼 차단하고 투표 버튼만 노출!)
+            // 3. 하단 버튼군: '이어쓰기 참여하기 / 이전까지 스토리 보기 / 닫기'
             const btnContainer = document.getElementById('integratedButtonContainer');
             if (targetRelay.phase === 'vote') {
                 btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
             } else {
-                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%;" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
+                btnContainer.innerHTML = `
+                    <button class="btn btn-primary" style="width:100%; margin-bottom:6px;" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>
+                    <button class="btn btn-outline" style="width:100%; margin:0;" onclick="openPrevChaptersModal()">📖 이전까지 스토리 보기</button>
+                `;
             }
 
             openModal('integratedRelayModal');
@@ -3059,15 +3091,16 @@ function getNationCode(selectElementId) {
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // ⏳ 5일(120시간) 마감 계산 및 타이머 포맷팅 함수
-        function calculateRemainingTime(createdAtTimestamp) {
-            const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
-            const expireTime = createdAtTimestamp + FIVE_DAYS_MS;
+        
+        // ⏳ 투표 기간은 정확히 3일(72시간)로 설정!
+        function calculateRemainingTime(createdAtTimestamp, isVotePhase = false) {
+            const DURATION_MS = isVotePhase ? (3 * 24 * 60 * 60 * 1000) : (5 * 24 * 60 * 60 * 1000);
+            const expireTime = createdAtTimestamp + DURATION_MS;
             const now = Date.now();
             const diff = expireTime - now;
 
             if (diff <= 0) {
-                return { expired: true, text: "마감됨 (자동 삭제 대상)" };
+                return { expired: true, text: "기간 마감됨" };
             }
 
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -3079,7 +3112,7 @@ function getNationCode(selectElementId) {
                 text: `${days}일 ${hours}시간 ${minutes}분 남음`
             };
         }
-
+        
         function updateRelayHubBadges() {
             const writeList = relayMockList.filter(item => !item.isBlind && item.phase === 'write');
             const voteList = relayMockList.filter(item => !item.isBlind && item.phase === 'vote');
