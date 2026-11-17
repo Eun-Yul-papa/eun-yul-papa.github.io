@@ -2790,8 +2790,7 @@ function getNationCode(selectElementId) {
             const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
             const wrapper = document.getElementById('writerFinalCheckboxWrapper');
             if (wrapper) {
-                if ((!isLongFormat && targetWritingCh >= 6 && targetWritingCh <= 10) || (isLongFormat && targetWritingCh >= 1:// ... 생략 가능하므로 아래 통째로 복사해 쓰세요
-                )) {
+                if ((!isLongFormat && targetWritingCh >= 6 && targetWritingCh <= 10) || (isLongFormat && targetWritingCh >= 11)) {
                     wrapper.style.display = 'flex';
                 } else {
                     wrapper.style.display = 'none';
