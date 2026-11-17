@@ -2133,19 +2133,20 @@ function getNationCode(selectElementId) {
 
         function renderRelayListContent() {
             const container = document.getElementById('relay-card-container');
+            if (!container) return;
+
             const selectedNation = document.getElementById('relayCountrySelect') ? document.getElementById('relayCountrySelect').value : 'ALL';
             
             const now = Date.now();
             let listChanged = false;
 
-            // 💡 마감 시간(5일)이 지나면 이어쓰기(write) 단계에서 자동으로 투표(vote) 단계로 전환!
             relayMockList.forEach(item => {
                 if (!item.createdAt) {
                     item.createdAt = now;
                 }
                 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
                 if (item.phase === 'write' && (now - item.createdAt >= FIVE_DAYS_MS)) {
-                    item.phase = 'vote'; // 5일 지나면 자동으로 투표 모드로 전환
+                    item.phase = 'vote';
                     listChanged = true;
                 }
             });
@@ -2157,8 +2158,10 @@ function getNationCode(selectElementId) {
             let filteredRelayList = relayMockList.filter(item => {
                 if (item.isBlind) return false;
                 if (selectedNation !== 'ALL' && item.nation !== selectedNation) return false;
-                if (currentRelayHubMode === 'write') return item.phase === 'write';
-                if (currentRelayHubMode === 'vote') return item.phase === 'vote';
+                if (typeof currentRelayHubMode !== 'undefined') {
+                    if (currentRelayHubMode === 'write') return item.phase === 'write';
+                    if (currentRelayHubMode === 'vote') return item.phase === 'vote';
+                }
                 return true;
             });
 
@@ -2172,10 +2175,14 @@ function getNationCode(selectElementId) {
 
             filteredRelayList.forEach(item => {
                 const isVote = item.phase === 'vote';
-                // 💡 투표 단계일 때는 절대 이어쓰기 버튼이 안 뜨고 투표 버튼만 노출!
-                const actionText = isVote ? '🗳️ 후보작 열람 & 투표 (무료)' : `✍️ 이어쓰기 참여 (1.0 ${CURRENCY_UNIT})`;
+                const actionText = isVote ? '🗳️ 투표하기' : `✍️ 이어쓰기 (1.0 ${CURRENCY_UNIT})`;
                 const timerInfo = calculateRemainingTime(item.createdAt);
-                const participantStatus = item.progress || '1/5 참여중';
+                
+                const chapters = item.chapters || [];
+                const lastConfirmedCh = chapters.length > 0 ? chapters[chapters.length - 1].ch : 1;
+                const candidates = chapters.filter(c => c.ch === lastConfirmedCh + 1);
+                const participantStatus = `${candidates.length}/5 참여중`;
+                item.progress = participantStatus;
 
                 if (isListMode) {
                     html += `
@@ -2183,7 +2190,7 @@ function getNationCode(selectElementId) {
                             <span class="board-col-num">${item.nation}</span>
                             <span class="board-col-title">${item.title}</span>
                             <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
-                            <span class="board-col-action"><button class="board-mini-btn">${actionText}</button></span>
+                            <span class="board-col-action"><button class="board-mini-btn" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">${actionText}</button></span>
                         </div>
                     `;
                 } else {
@@ -2191,12 +2198,12 @@ function getNationCode(selectElementId) {
                         <div class="card" onclick="handleListCardClick('${item.id}')">
                             <div class="tag-group" style="justify-content: space-between; align-items: center;">
                                 <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
-                                <span class="tag tag-meta">${item.format}</span>
+                                <span class="tag tag-meta">${item.format || '소설 / 단편'}</span>
                             </div>
                             <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
                             <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
-                            <div class="timer-info" style="color:var(--warning-orange);">⏳ 남은 마감 시간: ${timerInfo.text}</div>
-                            <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">${actionText}</button>
+                            <div class="timer-info" style="color:var(--warning-orange); margin-bottom: 10px;">⏳ 남은 마감 시간: ${timerInfo.text}</div>
+                            <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')" style="width:100%; margin:0;">${actionText}</button>
                         </div>
                     `;
                 }
