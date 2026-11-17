@@ -2581,20 +2581,22 @@ function getNationCode(selectElementId) {
                 targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName || currentUserId, content: targetRelay.content || '' }];
             }
 
-            const chapters = targetRelay.chapters;
-            // 가장 마지막에 확정/채택된 챕터 (최신 본문용)
-            const latestConfirmedCh = chapters[chapters.length - 1];
-            // 다음에 작성해야 할 챕터 번호 (예: 1화 뒤는 2화)
-            const targetWritingCh = latestConfirmedCh.ch + 1;
+            // 💡 [근본 해결] currentCh를 기준으로 현재 작성/투표 중인 회차를 2화로 확실하게 고정
+            if (!targetRelay.currentCh) {
+                targetRelay.currentCh = 2;
+            }
+            const targetWritingCh = targetRelay.currentCh;
+            const confirmedChNum = targetWritingCh - 1;
+
+            // 직전 확정된 최신 챕터 본문 찾기 (예: 2화 작성 중이면 1화 본문)
+            const latestConfirmedCh = targetRelay.chapters.find(c => c.ch === confirmedChNum) || targetRelay.chapters[0];
 
             // 현재 진행 중인 챕터 번호의 후보작들만 정확히 필터링
-            const candidates = chapters.filter(c => c.ch === targetWritingCh);
+            const candidates = targetRelay.chapters.filter(c => c.ch === targetWritingCh);
 
-            // 메인 카드 및 내부 뱃지에 쓰일 참여 인원수 실시간 업데이트
             targetRelay.progress = `${candidates.length}/5 참여중`;
             localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
 
-            // 상단 진행 단계 안내 문구 표기
             const phaseNotice = document.getElementById('integratedPhaseNotice');
             if (phaseNotice) {
                 if (targetRelay.phase === 'vote' || candidates.length >= 5) {
@@ -2604,7 +2606,7 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 1. 상단 본문: 직전 확정된 최신 챕터 본문 출력 (💡 여기 latestConfirmedCh.title로 정상 수정 완료!)
+            // 1. 상단 본문: 직전 확정된 최신 챕터 본문 출력
             const storyBodyContainer = document.getElementById('integratedStoryBody');
             if (storyBodyContainer) {
                 storyBodyContainer.innerText = `[이전화 : 제 ${latestConfirmedCh.ch}화 - ${latestConfirmedCh.title || '무제'}]\n(작가: ${latestConfirmedCh.author || targetRelay.creatorName})\n\n${latestConfirmedCh.content}`;
@@ -2631,7 +2633,7 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 3. 하단 버튼군 분기 (중복 참여 여부 체크)
+            // 3. 하단 버튼군 분기
             const btnContainer = document.getElementById('integratedButtonContainer');
             const alreadySubmittedByMe = candidates.some(c => c.author === currentUserId);
 
@@ -2725,9 +2727,13 @@ function getNationCode(selectElementId) {
                 return;
             }
 
+            if (!targetRelay.currentCh) {
+                targetRelay.currentCh = 2;
+            }
+            const targetWritingCh = targetRelay.currentCh;
+            const confirmedChNum = targetWritingCh - 1;
             const chapters = targetRelay.chapters || [];
-            const latestConfirmedCh = chapters[chapters.length - 1];
-            const targetWritingCh = latestConfirmedCh.ch + 1;
+            const latestConfirmedCh = chapters.find(c => c.ch === confirmedChNum) || chapters[0];
 
             // 중복 참여 차단 방어선
             const alreadySubmitted = chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId);
@@ -2740,17 +2746,14 @@ function getNationCode(selectElementId) {
             document.getElementById('writerFlag').innerText = targetRelay.nation || 'KR';
             document.getElementById('writerTitle').innerText = `${targetRelay.title} - 제 ${targetWritingCh}화 이어쓰기`;
             
-            // 직전 확정 본문 표시
             document.getElementById('writerBody').innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title}]\n\n${latestConfirmedCh.content}`;
 
-            // 마감 타이머 표시
             const timerSpan = document.getElementById('writerModalTimer');
             if (timerSpan) {
                 const timeLeft = calculateRemainingTime(targetRelay.createdAt || Date.now());
                 timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
             }
 
-            // 완결 체크박스 제어
             const formatStr = targetRelay.format || '';
             const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
             const wrapper = document.getElementById('writerFinalCheckboxWrapper');
@@ -2764,7 +2767,6 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 입력창 초기화
             const writerSubtitleInput = document.getElementById('writerSubtitleInput');
             const writerInputContent = document.getElementById('writerInputContent');
             if (writerSubtitleInput) writerSubtitleInput.value = '';
@@ -2826,7 +2828,7 @@ function getNationCode(selectElementId) {
             const relayId = document.getElementById('activeRelayId').value;
             const subtitle = document.getElementById('writerSubtitleInput').value.trim() || "이어지는 이야기";
             const content = document.getElementById('writerInputContent').value.trim();
-            const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite').checked : false;
+            const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite'].checked : false;
             const targetRelay = relayMockList.find(r => r.id === relayId);
 
             if (!content) {
@@ -2840,8 +2842,10 @@ function getNationCode(selectElementId) {
                 targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName || currentUserId, content: targetRelay.content || '' }];
             }
 
-            const latestConfirmedCh = targetRelay.chapters[targetRelay.chapters.length - 1];
-            const targetWritingCh = latestConfirmedCh.ch + 1;
+            if (!targetRelay.currentCh) {
+                targetRelay.currentCh = 2;
+            }
+            const targetWritingCh = targetRelay.currentCh;
 
             // 중복 참여 엄격 차단
             const alreadySubmitted = targetRelay.chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId);
@@ -2866,7 +2870,7 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 후보작으로 새 챕터 객체 추가
+            // 후보작으로 새 챕터 객체 추가 (고정된 targetWritingCh 사용)
             targetRelay.chapters.push({
                 ch: targetWritingCh,
                 title: subtitle,
@@ -2874,7 +2878,6 @@ function getNationCode(selectElementId) {
                 content: content,
                 votes: 0
             });
-            targetRelay.currentCh = targetWritingCh;
 
             const candidates = targetRelay.chapters.filter(c => c.ch === targetWritingCh);
 
