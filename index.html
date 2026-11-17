@@ -2702,7 +2702,6 @@ function getNationCode(selectElementId) {
                 return;
             }
 
-            // 💡 크리에이터 스튜디오 참여 이력 자동 추가
             if (!creatorStudioHistory.some(h => h.id === relayId)) {
                 creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: '집필참여', share: '지분산정중' });
                 renderStudioHistoryList();
@@ -2728,14 +2727,11 @@ function getNationCode(selectElementId) {
                     targetRelay.phase = 'completed';
                     targetRelay.completedAt = Date.now();
                 } else {
-                    // 💡 핵심 기획 반영: 
-                    // 2화든 3화든 매번 이어쓰기 후보가 제출되면, 
-                    // 이제부터는 해당 회차의 '투표(vote)' 단계로 돌입하여 독자들이 투표할 수 있게 함!
+                    // 💡 핵심 기획 반영: 2화든 3화든 회차 상관없이 이어쓰기가 제출되면 즉시 투표(vote) 단계로 진입!
                     targetRelay.phase = 'vote';
-                    targetRelay.createdAt = Date.now(); // 투표 마감 타이머 리셋
+                    targetRelay.createdAt = Date.now(); 
                 }
                 
-                // 임시저장 원고 찌꺼기 삭제
                 if (typeof relayDrafts !== 'undefined') {
                     relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
                     localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
@@ -2745,7 +2741,7 @@ function getNationCode(selectElementId) {
                 renderStudioHistoryList();
             }
 
-            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다!" : "🎉 이어쓰기 후보작이 제출되었습니다! 이제 해당 회차 투표가 시작됩니다.");
+            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다!" : "🎉 이어쓰기 후보작이 제출되었습니다! 이제 투표 기간이 시작됩니다.");
             closeModal('writerModal');
             renderRelayListContent();
         }
@@ -3184,18 +3180,63 @@ function getNationCode(selectElementId) {
                 return;
             }
             
-            // 투표 모달 안의 타이틀이나 후보 리스트를 그려주는 로직
             const voteTitleEl = document.getElementById('voteModalTitle');
-            if (voteTitleEl) voteTitleEl.innerText = targetRelay.title;
+            if (voteTitleEl) voteTitleEl.innerText = `${targetRelay.title} - 후보 투표소`;
 
-            // 후보작 목록 렌더링 함수가 있다면 여기서 호출
+            // 💡 [솔루션 적용] 투표 모달 상단에는 "직전까지 확정된 연재분(또는 최신 확정 회차)"만 깔끔하게 표시
+            const storyContentEl = document.getElementById('voteModalStoryContent') || document.getElementById('voteModalStoryBody');
+            if (storyContentEl) {
+                const chapters = targetRelay.chapters || [];
+                // 투표 대상이 되기 직전의 확정 회차 탐색
+                const latestConfirmedCh = chapters.length > 1 ? chapters[chapters.length - 2] : chapters[0];
+                if (latestConfirmedCh) {
+                    storyContentEl.innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || ''}]\n(작가: ${latestConfirmedCh.author})\n\n${latestConfirmedCh.content}`;
+                } else {
+                    storyContentEl.innerText = targetRelay.content;
+                }
+            }
+
+            // 후보작 목록 렌더링 함수 호출
             if (typeof renderVoteCandidateList === 'function') {
                 renderVoteCandidateList(targetRelay);
             }
 
-            // 투표 모달 열기 (모달 ID는 프로젝트 내 모달 이름에 맞게 조정)
             openModal('readVoteModal');
         }
+
+        function renderVoteCandidateList(targetRelay) {
+            const container = document.getElementById('candidateListContainer');
+            if (!container) return;
+
+            const chapters = targetRelay.chapters || [];
+            // 현재 투표 대상이 되는 후보작들 필터링 (최신에 추가된 챕터들)
+            let candidates = chapters.filter(c => c.ch >= targetRelay.currentCh || c.votes !== undefined);
+            
+            // 💡 만약 혼자 테스트해서 후보 필터링이 비어버리면, 가장 마지막에 쓴 글을 후보로 강제 지정하여 테스트 가능하게 함!
+            if (candidates.length === 0 && chapters.length > 0) {
+                candidates.push(chapters[chapters.length - 1]);
+            }
+
+            let html = '';
+            candidates.forEach((cand, idx) => {
+                html += `
+                    <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glow); padding: 14px; border-radius: 12px; margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-weight: 800; color: var(--warning-orange);">후보 #${idx + 1} : ${cand.title || '무제'}</span>
+                            <span style="font-size: 0.75rem; color: var(--success-green);">작자: ${cand.author || '익명'}</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-bright); line-height: 1.6; margin-bottom: 10px; white-space: pre-wrap;">${cand.content}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.78rem; color: var(--primary-cyan);">현재 득표수: ${cand.votes || 0}표</span>
+                            <button class="btn btn-primary" style="width: auto; margin: 0; padding: 6px 12px; font-size: 0.78rem;" onclick="submitVoteForCandidate('${targetRelay.id}', '${targetRelay.title}', '${cand.title || '후보'}')">이 후보에 투표하기 🗳️</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html || '<p style="text-align:center; color:var(--text-sub); padding:20px;">등록된 후보작이 없습니다.</p>';
+        }
+        
     </script>
 </body>
 </html>
