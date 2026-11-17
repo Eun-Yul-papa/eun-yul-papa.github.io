@@ -2206,25 +2206,24 @@ function getNationCode(selectElementId) {
 
                 if (isListMode) {
                     html += `
-                        <div class="board-list-row">
+                        <div class="board-list-row" onclick="handleListCardClick('${item.id}')">
                             <span class="board-col-num">${item.nation}</span>
-                            <span class="board-col-title" style="cursor:pointer;" onclick="handleListCardClick('${item.id}')">${item.title}</span>
+                            <span class="board-col-title">${item.title}</span>
                             <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
-                            <span class="board-col-action"><button class="board-mini-btn" onclick="handleListCardClick('${item.id}')">${actionText}</button></span>
+                            <span class="board-col-action"><button class="board-mini-btn" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">${actionText}</button></span>
                         </div>
                     `;
                 } else {
                     html += `
-                        <div class="card">
+                        <div class="card" onclick="handleListCardClick('${item.id}')">
                             <div class="tag-group" style="justify-content: space-between; align-items: center;">
                                 <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
                                 <span class="tag tag-meta">${item.format || '소설 / 단편'}</span>
                             </div>
-                            <div class="title-with-flag" style="cursor:pointer;" onclick="handleListCardClick('${item.id}')"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
-                            <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px; cursor:pointer;" onclick="handleListCardClick('${item.id}')">"${item.content}"</p>
+                            <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
+                            <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
                             <div class="timer-info" style="color:var(--warning-orange); margin-bottom: 10px;">⏳ 남은 마감 시간: ${timerInfo.text}</div>
-                            <!-- 💡 카드 전체 onclick을 없애고 버튼 자체에 이벤트를 확실하게 독립시킴 -->
-                            <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="handleListCardClick('${item.id}')" style="width:100%; margin:0; position:relative; z-index:10;">${actionText}</button>
+                            <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')" style="width:100%; margin:0;">${actionText}</button>
                         </div>
                     `;
                 }
