@@ -1752,7 +1752,7 @@ function getNationCode(selectElementId) {
                 title: title,
                 nation: nationCode,
                 format: `${format} / ${lengthType}`,
-                progress: '1/5 참여중',
+                progress: '0/5 참여중',
                 phase: 'write',
                 currentCh: 1,
                 createdAt: Date.now(), // 💡 정확한 마감 타이머 계산용 타임스탬프
@@ -2524,41 +2524,30 @@ function getNationCode(selectElementId) {
             if (!confirm("⚠️ 정말 이 게시글을 영구 삭제하시겠습니까?")) return;
 
             try {
-                // 백엔드 삭제 API 호출
-                const response = await fetch(`http://localhost:5000/api/admin/content/${contentId}`, {
+                // 💡 로컬 ID(card_...)인 경우 백엔드 통신 없이 곧바로 프론트엔드에서 삭제 처리
+                if (contentId.startsWith('card_') || contentId.startsWith('c_')) {
+                    throw new Error("Local ID - skip backend API");
+                }
+
+                await fetch(`http://localhost:5000/api/admin/content/${contentId}`, {
                     method: 'DELETE'
                 });
-                const result = await response.json();
-
-                if (result.success || response.ok) {
-                    // 프론트엔드 배열에서도 즉시 제거
-                    if (type === 'relay') {
-                        relayMockList = relayMockList.filter(item => item.id !== contentId);
-                        renderRelayListContent();
-                    } else {
-                        creatorMockList = creatorMockList.filter(item => item.id !== contentId);
-                        renderCreatorListViewContent();
-                    }
-
-                    alert("🗑️ 게시글이 성공적으로 삭제되었습니다.");
-                    renderAdminContentList(); // 대시보드 목록 새로고침
-                } else {
-                    alert("삭제 실패: " + (result.message || "서버 오류"));
-                }
             } catch (error) {
-                console.warn("⚠️ 백엔드 통신 에러로 로컬 목록에서만 삭제합니다.", error);
-                
-                // 로컬 테스트용 강제 제거 방어 코드
-                if (type === 'relay') {
-                    relayMockList = relayMockList.filter(item => item.id !== contentId);
-                    renderRelayListContent();
-                } else {
-                    creatorMockList = creatorMockList.filter(item => item.id !== contentId);
-                    renderCreatorListViewContent();
-                }
-                alert("🗑️ 게시글이 삭제되었습니다. (로컬 반영)");
-                renderAdminContentList();
+                console.warn("⚠️ 로컬 테스트 모드로 즉시 삭제합니다.");
             }
+
+            if (type === 'relay') {
+                relayMockList = relayMockList.filter(item => item.id !== contentId);
+                localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+                renderRelayListContent();
+            } else {
+                creatorMockList = creatorMockList.filter(item => item.id !== contentId);
+                localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
+                renderCreatorListViewContent();
+            }
+
+            alert("🗑️ 게시글이 성공적으로 삭제되었습니다.");
+            renderAdminContentList();
         }
         
         function addSubAdmin() {
@@ -2584,6 +2573,9 @@ function getNationCode(selectElementId) {
             const candidates = chapters.filter(c => c.ch > 1);
             const currentWritingCh = chapters.length > 0 ? chapters[chapters.length - 1].ch + 1 : 2;
 
+            // 💡 [수정] 실제 후보작 수에 맞춰 동적으로 X/5 인원 표시 갱신
+            targetRelay.progress = `${candidates.length}/5 참여중`;
+
             // 상단 진행 단계 안내 문구 표기
             const phaseNotice = document.getElementById('integratedPhaseNotice');
             if (phaseNotice) {
@@ -2594,7 +2586,7 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 1. 상단: 직전까지 채택된 최신 본문 표시 (투표 모달 및 상세창 공통)
+            // 1. 상단: 직전까지 채택된 최신 본문 표시
             const storyBodyContainer = document.getElementById('integratedStoryBody');
             if (storyBodyContainer) {
                 if (chapters.length > 0) {
@@ -2626,7 +2618,7 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 3. 하단 버튼군: 5일간 이어쓰기 기간 vs 3일 투표 기간 엄격 분기
+            // 3. 하단 버튼군: 5일간 이어쓰기 기간 유지 (5명 꽉 차거나 5일 지난 경우에만 투표 모드 진입)
             const btnContainer = document.getElementById('integratedButtonContainer');
             if (targetRelay.phase === 'vote' || candidates.length >= 5) {
                 btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%; margin:0;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
@@ -2819,18 +2811,12 @@ function getNationCode(selectElementId) {
                 return;
             }
 
-            if (!creatorStudioHistory.some(h => h.id === relayId)) {
-                creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: '집필참여', share: '지분산정중' });
-                renderStudioHistoryList();
-            }
-
             if (targetRelay) {
                 if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
                     targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
                 }
                 const nextCh = targetRelay.chapters.length + 1;
                 
-                // 이번 회차의 이어쓰기 후보작으로 추가
                 targetRelay.chapters.push({
                     ch: nextCh,
                     title: subtitle,
@@ -2840,27 +2826,26 @@ function getNationCode(selectElementId) {
                 });
                 targetRelay.currentCh = nextCh;
                 
+                const candidatesCount = targetRelay.chapters.filter(c => c.ch > 1).length;
+
                 if (isFinal) {
                     targetRelay.phase = 'completed';
                     targetRelay.completedAt = Date.now();
-                } else {
-                    // 💡 핵심 기획 반영: 2화든 3화든 회차 상관없이 이어쓰기가 제출되면 즉시 투표(vote) 단계로 진입!
+                } else if (candidatesCount >= 5) {
+                    // 💡 [수정] 오직 5명이 꽉 찼을 때만 투표(vote) 단계로 전환! 아니면 5일 동안 이어쓰기('write') 유지
                     targetRelay.phase = 'vote';
-                    targetRelay.createdAt = Date.now(); 
+                } else {
+                    targetRelay.phase = 'write';
                 }
                 
-                if (typeof relayDrafts !== 'undefined') {
-                    relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
-                    localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
-                }
-
+                targetRelay.progress = `${candidatesCount}/5 참여중`;
+                
                 localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-                renderStudioHistoryList();
             }
 
-            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다!" : "🎉 이어쓰기 후보작이 제출되었습니다! 이제 투표 기간이 시작됩니다.");
+            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다!" : "✨ 이어쓰기 후보작이 제출되었습니다! (5일간의 집필 기간 동안 추가 참여자를 모집합니다)");
             closeModal('writerModal');
-            renderRelayListContent();
+            handleListCardClick(relayId);
         }
 
         function openCreatorReadModal(title, totalCh, author) {
