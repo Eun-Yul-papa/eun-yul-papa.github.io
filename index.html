@@ -2847,7 +2847,7 @@ function getNationCode(selectElementId) {
             const relayId = document.getElementById('activeRelayId').value;
             const subtitle = document.getElementById('writerSubtitleInput').value.trim() || "이어지는 이야기";
             const content = document.getElementById('writerInputContent').value.trim();
-            const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite'].checked : false;
+            const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite').checked : false;
             const targetRelay = relayMockList.find(r => r.id === relayId);
 
             if (!content) {
