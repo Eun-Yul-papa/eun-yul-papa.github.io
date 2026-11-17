@@ -1278,9 +1278,18 @@ div[id$="-card-container"] p {
                 </div>
                 <button class="close-btn" onclick="closeModal('integratedRelayModal')">✕</button>
             </div>
-            <p style="font-size: 0.9rem; color: var(--text-sub); margin-bottom: 16px; line-height: 1.6; white-space: pre-wrap !important; word-break: break-all !important; overflow-wrap: break-word !important;" id="integratedDesc">스토리 설명</p>
+            
+            <!-- 1. 직전까지 채택된 본문 출력 영역 -->
+            <div class="reader-body theme-dark notranslate" id="integratedStoryBody" style="max-height: 220px; overflow-y: auto; margin: 10px 0 14px 0; padding: 14px; font-size: 0.9rem;"></div>
+            
+            <!-- 2. 현재 경쟁 중인 참여자 글 목록 (소제목 + 작가명) 출력 영역 -->
+            <div id="integratedCandidatePreviewContainer" style="margin-bottom: 14px;"></div>
+            
+            <!-- 3. 하단 액션 버튼 영역 (이어쓰기 참여 / 투표 버튼 동적 생성) -->
             <div class="button-group" style="flex-direction: column;" id="integratedButtonContainer"></div>
-            <button class="btn btn-outline" style="margin-top: 10px;" onclick="openPrevChaptersModal()">📖 이전까지 스토리 보기</button>
+            
+            <!-- 고정 하단 버튼 (중복 제거 완료) -->
+            <button class="btn btn-outline" style="margin-top: 8px;" onclick="openPrevChaptersModal()">📖 이전까지 스토리 보기</button>
             <button class="btn btn-outline" style="margin-top: 8px;" onclick="closeModal('integratedRelayModal')">닫기</button>
         </div>
     </div>
@@ -2566,6 +2575,86 @@ function getNationCode(selectElementId) {
                 alert("해당 스토리 데이터를 찾을 수 없습니다.");
                 return;
             }
+
+            document.getElementById('activeRelayId').value = targetRelay.id;
+            document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
+            document.getElementById('integratedTitle').innerText = targetRelay.title;
+            
+            const chapters = targetRelay.chapters || [];
+
+            // 1. 상단: 직전까지 채택된 최신 본문 표시
+            const storyBodyContainer = document.getElementById('integratedStoryBody');
+            if (storyBodyContainer) {
+                if (chapters.length > 0) {
+                    const latestCh = chapters[chapters.length - 1];
+                    storyBodyContainer.innerText = `[제 ${latestCh.ch}화 : ${latestCh.title || '무제'}]\n(작가: ${latestCh.author || targetRelay.creatorName})\n\n${latestCh.content}`;
+                } else {
+                    storyBodyContainer.innerText = `[제 1화 : ${targetRelay.title}]\n(작가: ${targetRelay.creatorName})\n\n${targetRelay.content || '등록된 본문이 없습니다.'}`;
+                }
+            }
+
+            // 2. 중단: 현재 경쟁 중인 참여자들의 이어쓰기 글 목록 ('소제목 + 작가명')
+            const candidatePreviewContainer = document.getElementById('integratedCandidatePreviewContainer');
+            if (candidatePreviewContainer) {
+                // 2화 이상(후속 이어쓰기 후보들) 추출
+                const candidates = chapters.filter(c => c.ch > 1);
+                if (candidates.length > 0) {
+                    let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:var(--success-green); margin-bottom:8px;">✍️ 현재 집필 경쟁 중인 이어쓰기 목록 (${candidates.length}/5명)</div>`;
+                    candidates.forEach((c, idx) => {
+                        candHtml += `
+                            <div class="chapter-list-item" onclick="openCandidateDetailReader('${targetRelay.id}', ${idx})" style="padding: 10px 12px; margin-bottom: 6px; font-size: 0.82rem;">
+                                <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    <b style="color:var(--primary-cyan);">${c.title || '무제'}</b> <span style="color:var(--text-sub);">| 작가: ${c.author}</span>
+                                </div>
+                                <span style="color:var(--primary-cyan); font-size:0.75rem; flex-shrink:0; margin-left:8px;">보기 ➔</span>
+                            </div>
+                        `;
+                    });
+                    candidatePreviewContainer.innerHTML = candHtml;
+                } else {
+                    candidatePreviewContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--text-sub); background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; text-align:center;">아직 등록된 이어쓰기 경쟁작이 없습니다. 첫 도전자가 되어보세요!</div>`;
+                }
+            }
+
+            // 3. 하단 버튼군: HTML에 이미 '이전까지 스토리 보기'가 있으므로 여기선 참여/투표 버튼만 삽입!
+            const btnContainer = document.getElementById('integratedButtonContainer');
+            if (targetRelay.phase === 'vote') {
+                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%; margin:0;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
+            } else {
+                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
+            }
+
+            openModal('integratedRelayModal');
+        }
+
+        // 📖 경쟁자 목록에서 소제목 클릭 시 해당 글 본문을 보여주는 함수
+        function openCandidateDetailReader(relayId, candIndex) {
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay || !targetRelay.chapters) return;
+
+            const candidates = targetRelay.chapters.filter(c => c.ch > 1);
+            const selected = candidates[candIndex];
+            if (!selected) return;
+
+            closeModal('integratedRelayModal');
+
+            document.getElementById('candidateReaderTitle').innerText = `${selected.title || '무제'} (작가: ${selected.author})`;
+            document.getElementById('candidateReaderBody').innerText = selected.content;
+
+            // 이어쓰기 대기(write) 상태일 때는 투표 버튼 숨기고 목록 돌아가기만 깔끔하게 노출
+            const voteBtn = document.getElementById('btnVoteThisCandidate');
+            if (voteBtn) {
+                voteBtn.style.display = (targetRelay.phase === 'vote') ? 'block' : 'none';
+            }
+
+            // 돌아가기 버튼이 '후보 투표소'가 아닌 '상세 모달'로 돌아가도록 임시 조정
+            const backBtn = document.querySelector('#candidateReaderModal button[onclick*="openModal(\'readVoteModal\')"]');
+            if (backBtn) {
+                backBtn.setAttribute('onclick', `closeModal('candidateReaderModal'); openModal('integratedRelayModal');`);
+            }
+
+            openModal('candidateReaderModal');
+        }
 
             document.getElementById('activeRelayId').value = targetRelay.id;
             document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
