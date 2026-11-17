@@ -2604,10 +2604,10 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 1. 상단 본문: 직전 확정된 최신 챕터 본문 출력
+            // 1. 상단 본문: 직전 확정된 최신 챕터 본문 출력 (💡 여기 latestConfirmedCh.title로 정상 수정 완료!)
             const storyBodyContainer = document.getElementById('integratedStoryBody');
             if (storyBodyContainer) {
-                storyBodyContainer.innerText = `[이전화 : 제 ${latestConfirmedCh.ch}화 - ${latestCh.title || '무제'}]\n(작가: ${latestConfirmedCh.author || targetRelay.creatorName})\n\n${latestConfirmedCh.content}`;
+                storyBodyContainer.innerText = `[이전화 : 제 ${latestConfirmedCh.ch}화 - ${latestConfirmedCh.title || '무제'}]\n(작가: ${latestConfirmedCh.author || targetRelay.creatorName})\n\n${latestConfirmedCh.content}`;
             }
 
             // 2. 중단: 현재 경쟁 중인 후보작 목록 출력
