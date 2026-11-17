@@ -1486,35 +1486,37 @@ function getNationCode(selectElementId) {
             const targetRelay = relayMockList.find(r => r.id === relayId);
             if (!targetRelay) return;
 
-            // 💡 중복 투표 방지 체크 (로컬스토리지나 배열로 유저별 투표 기록 관리)
+            // 1. 중복 투표 방지 체크
             const voteCheckKey = `voted_${relayId}_ch_${targetRelay.currentCh}_${currentUserId}`;
             if (localStorage.getItem(voteCheckKey)) {
                 alert("⚠️ 이미 이 회차에 투표를 완료하셨습니다! 중복 투표는 하실 수 없습니다.");
                 return;
             }
 
-            // 해당 후보작 찾아서 득표수 1 증가
+            // 2. 해당 후보작 득표수 1증가
             const candidate = targetRelay.chapters.find(c => c.ch === candidateCh);
             if (candidate) {
                 candidate.votes = (candidate.votes || 0) + 1;
             }
 
-            // 투표 완료 기록 저장
+            // 3. 투표 기록 영구 저장
             localStorage.setItem(voteCheckKey, "true");
             localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
 
-            // 나의 구독 활동에도 반영
+            // 4. 나의 구독 활동에 반영
             if (!userVotedRelays.some(v => v.id === relayId)) {
                 userVotedRelays.push({ id: relayId, title: targetRelay.title, choice: candidate ? candidate.title : '후보작' });
                 renderAllSubscriptionActivities();
             }
 
-            alert(`🎉 투표가 성공적으로 반영되었습니다! 현재 득표수: ${candidate.votes}표`);
-            
-            // 모달 새로고침 렌더링
-            renderVoteCandidateList(targetRelay);
-        }
+            // 5. 💡 [핵심] 투표 성공 알림창 즉시 띄우기!
+            alert(`🎉 투표가 완료되었습니다! (현재 득표수: ${candidate.votes}표)`);
 
+            // 6. 💡 [핵심] 모달 안의 후보작 목록을 즉시 재렌더링하여 득표수 0표에서 올라간 숫자로 바로 갱신!
+            if (typeof renderVoteCandidateList === 'function') {
+                renderVoteCandidateList(targetRelay);
+            }
+        }
         function renderAlarmList() {
             const container = document.getElementById('alarmListContainer');
             if (!container) return;
@@ -2799,17 +2801,16 @@ function getNationCode(selectElementId) {
 
             chapters.forEach(c => {
                 const isFirst = (c.ch === 1);
-                // 💡 요청대로 작가명 옆 '(유료 연재 0.1 Test-Pi)' 깔끔하게 제거! 버튼에만 가격 표기
                 const btnLabel = isFirst ? '📖 1화 읽기 (무료)' : `📖 ${c.ch}화 읽기 (0.1 ${CURRENCY_UNIT})`;
                 const btnStyle = isFirst ? '' : 'border-color: var(--primary-cyan); color: var(--primary-cyan);';
 
                 html += `
-                    <div class="chapter-list-item">
-                        <div>
-                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan);">제 ${c.ch}화 : ${c.title || ''}</div>
-                            <div style="font-size: 0.78rem; color: var(--success-green);">작가 : ${c.author || author}</div>
+                    <div class="chapter-list-item" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                        <div style="flex: 1; min-width: 0; overflow: hidden;">
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-cyan); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">제 ${c.ch}화 : ${c.title || ''}</div>
+                            <div style="font-size: 0.78rem; color: var(--success-green); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">작가 : ${c.author || author}</div>
                         </div>
-                        <button class="btn btn-outline" style="width: auto; margin:0; padding: 6px 14px; ${btnStyle}" onclick="readCreatorChapter('${title}', ${c.ch})">${btnLabel}</button>
+                        <button class="btn btn-outline" style="flex-shrink: 0; width: 148px; margin: 0; padding: 7px 8px; font-size: 0.76rem; white-space: nowrap; text-align: center; ${btnStyle}" onclick="readCreatorChapter('${title}', ${c.ch})">${btnLabel}</button>
                     </div>
                 `;
             });
