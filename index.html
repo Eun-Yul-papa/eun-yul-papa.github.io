@@ -2581,24 +2581,35 @@ function getNationCode(selectElementId) {
             document.getElementById('integratedTitle').innerText = targetRelay.title;
             
             const chapters = targetRelay.chapters || [];
+            const candidates = chapters.filter(c => c.ch > 1);
+            const currentWritingCh = chapters.length > 0 ? chapters[chapters.length - 1].ch + 1 : 2;
 
-            // 1. 상단: 직전까지 채택된 최신 본문 표시
+            // 상단 진행 단계 안내 문구 표기
+            const phaseNotice = document.getElementById('integratedPhaseNotice');
+            if (phaseNotice) {
+                if (targetRelay.phase === 'vote' || candidates.length >= 5) {
+                    phaseNotice.innerHTML = `🗳️ [제 ${currentWritingCh - 1}화 후보작 투표 진행 중] (투표 기간: 3일)`;
+                } else {
+                    phaseNotice.innerHTML = `✍️ [제 ${currentWritingCh}화 이어쓰기 진행 중] (참여 인원: ${candidates.length}/5명)`;
+                }
+            }
+
+            // 1. 상단: 직전까지 채택된 최신 본문 표시 (투표 모달 및 상세창 공통)
             const storyBodyContainer = document.getElementById('integratedStoryBody');
             if (storyBodyContainer) {
                 if (chapters.length > 0) {
                     const latestCh = chapters[chapters.length - 1];
-                    storyBodyContainer.innerText = `[제 ${latestCh.ch}화 : ${latestCh.title || '무제'}]\n(작가: ${latestCh.author || targetRelay.creatorName})\n\n${latestCh.content}`;
+                    storyBodyContainer.innerText = `[이전화 : 제 ${latestCh.ch}화 - ${latestCh.title || '무제'}]\n(작가: ${latestCh.author || targetRelay.creatorName})\n\n${latestCh.content}`;
                 } else {
-                    storyBodyContainer.innerText = `[제 1화 : ${targetRelay.title}]\n(작가: ${targetRelay.creatorName})\n\n${targetRelay.content || '등록된 본문이 없습니다.'}`;
+                    storyBodyContainer.innerText = `[이전화 : 제 1화 - ${targetRelay.title}]\n(작가: ${targetRelay.creatorName})\n\n${targetRelay.content || '등록된 본문이 없습니다.'}`;
                 }
             }
 
             // 2. 중단: 현재 경쟁 중인 참여자들의 이어쓰기 글 목록
             const candidatePreviewContainer = document.getElementById('integratedCandidatePreviewContainer');
             if (candidatePreviewContainer) {
-                const candidates = chapters.filter(c => c.ch > 1);
                 if (candidates.length > 0) {
-                    let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:var(--success-green); margin-bottom:8px;">✍️ 현재 집필 경쟁 중인 이어쓰기 목록 (${candidates.length}/5명)</div>`;
+                    let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:var(--success-green); margin-bottom:8px;">✍️ 현재 집필 경쟁 중인 제 ${currentWritingCh}화 목록 (${candidates.length}/5명)</div>`;
                     candidates.forEach((c, idx) => {
                         candHtml += `
                             <div class="chapter-list-item" onclick="openCandidateDetailReader('${targetRelay.id}', ${idx})" style="padding: 10px 12px; margin-bottom: 6px; font-size: 0.82rem;">
@@ -2611,49 +2622,84 @@ function getNationCode(selectElementId) {
                     });
                     candidatePreviewContainer.innerHTML = candHtml;
                 } else {
-                    candidatePreviewContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--text-sub); background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; text-align:center;">아직 등록된 이어쓰기 경쟁작이 없습니다. 첫 도전자가 되어보세요!</div>`;
+                    candidatePreviewContainer.innerHTML = `<div style="font-size:0.8rem; color:var(--text-sub); background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; text-align:center;">아직 등록된 이어쓰기 경쟁작이 없습니다. 첫 도전자가 되어보세요! (0/5)</div>`;
                 }
             }
 
-            // 3. 하단 버튼군
+            // 3. 하단 버튼군: 5일간 이어쓰기 기간 vs 3일 투표 기간 엄격 분기
             const btnContainer = document.getElementById('integratedButtonContainer');
-            if (targetRelay.phase === 'vote') {
-                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
+            if (targetRelay.phase === 'vote' || candidates.length >= 5) {
+                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%; margin:0;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
             } else {
-                btnContainer.innerHTML = `
-                    <button class="btn btn-primary" style="width:100%; margin-bottom:6px;" onclick="openWriterModal('${targetRelay.id}')">✍️ 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>
-                    <button class="btn btn-outline" style="width:100%; margin:0;" onclick="openPrevChaptersModal()">📖 이전까지 스토리 보기</button>
-                `;
+                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="openWriterModal('${targetRelay.id}')">✍️ 제 ${currentWritingCh}화 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
             }
 
             openModal('integratedRelayModal');
         }
 
-        // 📖 경쟁자 목록에서 소제목 클릭 시 해당 글 본문을 보여주는 함수
-        function openCandidateDetailReader(relayId, candIndex) {
+        // 이어쓰기 제출 시 중복 참여 체크 및 5일 기간 유지 로직
+        function submitRelayContribution(relayId) {
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) return;
+
+            if (!targetRelay.chapters) targetRelay.chapters = [];
+            const candidates = targetRelay.chapters.filter(c => c.ch > 1);
+
+            // 중복 참여 체크 (이미 이 회차에 참여한 유저인지 검사)
+            const currentUser = "wnalsdud88"; // 예시 유저명 또는 세션 유저
+            const alreadySubmitted = candidates.some(c => c.author === currentUser);
+            if (alreadySubmitted) {
+                alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
+                return;
+            }
+
+            // 5명 제한 체크
+            if (candidates.length >= 5) {
+                alert("⚠️ 이미 정원(5명)이 모두 마감되었습니다.");
+                return;
+            }
+
+            // 새 후보작 추가 (곧바로 투표로 넘가지 않고 5일간 이어쓰기 목록에 머물도록 phase는 'write' 유지)
+            targetRelay.chapters.push({
+                ch: targetRelay.chapters.length + 1,
+                title: document.getElementById('writerTitleInput').value.trim() || '무제',
+                content: document.getElementById('writerContentInput').value.trim(),
+                author: currentUser,
+                votes: 0
+            });
+
+            alert("✨ 이어쓰기 후보작이 제출되었습니다! (5일간 집필 기간 동안 추가 참여자를 모집합니다)");
+            closeModal('writerModal');
+            handleListCardClick(relayId);
+        }
+
+        // 투표하기 버튼 동작 및 득표수 실시간 반영 처리
+        function voteForCandidate(relayId, candIndex) {
             const targetRelay = relayMockList.find(r => r.id === relayId);
             if (!targetRelay || !targetRelay.chapters) return;
 
             const candidates = targetRelay.chapters.filter(c => c.ch > 1);
-            const selected = candidates[candIndex];
-            if (!selected) return;
+            const targetCandidate = candidates[candIndex];
+            if (!targetCandidate) return;
 
-            closeModal('integratedRelayModal');
+            if (!targetCandidate.voters) targetCandidate.voters = [];
+            const currentUser = "wnalsdud88";
 
-            document.getElementById('candidateReaderTitle').innerText = `${selected.title || '무제'} (작가: ${selected.author})`;
-            document.getElementById('candidateReaderBody').innerText = selected.content;
-
-            const voteBtn = document.getElementById('btnVoteThisCandidate');
-            if (voteBtn) {
-                voteBtn.style.display = (targetRelay.phase === 'vote') ? 'block' : 'none';
+            if (targetCandidate.voters.includes(currentUser)) {
+                alert("⚠️ 이미 이 회차에 투표를 완료하셨습니다! 중복 투표는 하실 수 없습니다.");
+                return;
             }
 
-            const backBtn = document.querySelector('#candidateReaderModal button[onclick*="openModal(\'readVoteModal\')"]');
-            if (backBtn) {
-                backBtn.setAttribute('onclick', `closeModal('candidateReaderModal'); openModal('integratedRelayModal');`);
-            }
+            targetCandidate.voters.push(currentUser);
+            targetCandidate.votes = (targetCandidate.votes || 0) + 1;
 
-            openModal('candidateReaderModal');
+            alert(`🎉 성공적으로 투표되었습니다! (현재 득표수: ${targetCandidate.votes}표)`);
+            
+            // 화면 득표수 갱신
+            const voteCountElem = document.getElementById(`voteCount_${candIndex}`);
+            if (voteCountElem) {
+                voteCountElem.innerText = `현재 득표수: ${targetCandidate.votes}표`;
+            }
         }
         
         // 💡 임시저장 원고 불러오기 안전 처리 함수 (에러 방지용)
