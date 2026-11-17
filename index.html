@@ -2570,19 +2570,21 @@ function getNationCode(selectElementId) {
             document.getElementById('integratedTitle').innerText = targetRelay.title;
             
             const chapters = targetRelay.chapters || [];
-            const candidates = chapters.filter(c => c.ch > 1);
-            const currentWritingCh = chapters.length > 0 ? chapters[chapters.length - 1].ch + 1 : 2;
+            const currentTargetCh = chapters.length > 0 ? chapters[chapters.length - 1].ch + 1 : 2;
+            
+            // 💡 [핵심] 현재 진행 중인 바로 그 챕터에 올라온 후보작들만 필터링
+            const candidates = chapters.filter(c => c.ch === currentTargetCh);
 
-            // 💡 [수정] 실제 후보작 수에 맞춰 동적으로 X/5 인원 표시 갱신
+            // 실시간 인원 카운트 갱신 반영
             targetRelay.progress = `${candidates.length}/5 참여중`;
 
             // 상단 진행 단계 안내 문구 표기
             const phaseNotice = document.getElementById('integratedPhaseNotice');
             if (phaseNotice) {
                 if (targetRelay.phase === 'vote' || candidates.length >= 5) {
-                    phaseNotice.innerHTML = `🗳️ [제 ${currentWritingCh - 1}화 후보작 투표 진행 중] (투표 기간: 3일)`;
+                    phaseNotice.innerHTML = `🗳️ [제 ${currentTargetCh - 1}화 후보작 투표 진행 중] (투표 기간: 3일)`;
                 } else {
-                    phaseNotice.innerHTML = `✍️ [제 ${currentWritingCh}화 이어쓰기 진행 중] (참여 인원: ${candidates.length}/5명)`;
+                    phaseNotice.innerHTML = `✍️ [제 ${currentTargetCh}화 이어쓰기 진행 중] (참여 인원: ${candidates.length}/5명)`;
                 }
             }
 
@@ -2601,7 +2603,7 @@ function getNationCode(selectElementId) {
             const candidatePreviewContainer = document.getElementById('integratedCandidatePreviewContainer');
             if (candidatePreviewContainer) {
                 if (candidates.length > 0) {
-                    let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:var(--success-green); margin-bottom:8px;">✍️ 현재 집필 경쟁 중인 제 ${currentWritingCh}화 목록 (${candidates.length}/5명)</div>`;
+                    let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:var(--success-green); margin-bottom:8px;">✍️ 현재 집필 경쟁 중인 제 ${currentTargetCh}화 목록 (${candidates.length}/5명)</div>`;
                     candidates.forEach((c, idx) => {
                         candHtml += `
                             <div class="chapter-list-item" onclick="openCandidateDetailReader('${targetRelay.id}', ${idx})" style="padding: 10px 12px; margin-bottom: 6px; font-size: 0.82rem;">
@@ -2618,17 +2620,21 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 3. 하단 버튼군: 5일간 이어쓰기 기간 유지 (5명 꽉 차거나 5일 지난 경우에만 투표 모드 진입)
+            // 3. 하단 버튼군: 내가 이미 참여했거나 투표/이어쓰기 단계에 따른 정밀 분기
             const btnContainer = document.getElementById('integratedButtonContainer');
+            const alreadySubmittedByMe = candidates.some(c => c.author === currentUserId);
+
             if (targetRelay.phase === 'vote' || candidates.length >= 5) {
                 btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%; margin:0;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
+            } else if (alreadySubmittedByMe) {
+                btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--success-green); color:var(--success-green);" disabled>✅ 이미 이 회차 이어쓰기에 참여하셨습니다</button>`;
             } else {
-                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="openWriterModal('${targetRelay.id}')">✍️ 제 ${currentWritingCh}화 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
+                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="openWriterModal('${targetRelay.id}')">✍️ 제 ${currentTargetCh}화 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
             }
 
             openModal('integratedRelayModal');
         }
-
+        
         // 이어쓰기 제출 시 중복 참여 체크 및 5일 기간 유지 로직
         function submitRelayContribution(relayId) {
             const targetRelay = relayMockList.find(r => r.id === relayId);
@@ -2707,32 +2713,38 @@ function getNationCode(selectElementId) {
                 return;
             }
 
+            const chapters = targetRelay.chapters || [];
+            const currentTargetCh = chapters.length > 0 ? chapters[chapters.length - 1].ch + 1 : 2;
+
+            // 💡 [핵심 방어] 이미 내가 이 회차에 글을 썼다면 작업실 진입을 막고 알림 띄우기!
+            const alreadySubmitted = chapters.some(c => c.ch === currentTargetCh && c.author === currentUserId);
+            if (alreadySubmitted) {
+                alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
+                return;
+            }
+
             document.getElementById('activeRelayId').value = targetRelay.id;
             document.getElementById('writerFlag').innerText = targetRelay.nation || 'KR';
-            document.getElementById('writerTitle').innerText = `${targetRelay.title} - 이어쓰기`;
+            document.getElementById('writerTitle').innerText = `${targetRelay.title} - 제 ${currentTargetCh}화 이어쓰기`;
             
             // 직전 회차 본문 보여주기
-            const lastChapter = (targetRelay.chapters && targetRelay.chapters.length > 0) 
-                ? targetRelay.chapters[targetRelay.chapters.length - 1] 
-                : { ch: 1, title: targetRelay.title, content: targetRelay.content };
+            const lastChapter = chapters.length > 0 ? chapters[chapters.length - 1] : { ch: 1, title: targetRelay.title, content: targetRelay.content };
             document.getElementById('writerBody').innerText = `[제 ${lastChapter.ch}화 : ${lastChapter.title}]\n\n${lastChapter.content}`;
 
-            // 마감 타이머 표시
+            // 💡 [유지] 마감 타이머 표시 기능 복원!
             const timerSpan = document.getElementById('writerModalTimer');
             if (timerSpan) {
                 const timeLeft = calculateRemainingTime(targetRelay.createdAt || Date.now());
                 timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
             }
 
-            // 💡 다음 작성할 회차 번호 계산
-            const nextChNum = (targetRelay.chapters ? targetRelay.chapters.length : 1) + 1;
+            // 💡 [유지] 단편/장편에 따른 완결 체크박스 노출 제어 복원!
             const formatStr = targetRelay.format || '';
             const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
 
             const wrapper = document.getElementById('writerFinalCheckboxWrapper');
             if (wrapper) {
-                // 단편: 6~10화 작성 시 노출 / 장편: 11화 이상 작성 시 노출
-                if ((!isLongFormat && nextChNum >= 6 && nextChNum <= 10) || (isLongFormat && nextChNum >= 11)) {
+                if ((!isLongFormat && currentTargetCh >= 6 && currentTargetCh <= 10) || (isLongFormat && currentTargetCh >= 11)) {
                     wrapper.style.display = 'flex';
                 } else {
                     wrapper.style.display = 'none';
@@ -2741,15 +2753,16 @@ function getNationCode(selectElementId) {
                 }
             }
 
-            // 💡 [핵심 방어선] 다른 릴레이의 입력 잔상이 남지 않도록 작성 입력창(textarea 등)을 먼저 깨끗하게 초기화!
-            const writerInputTitle = document.getElementById('writerInputTitle'); // 작성하는 제목 input (만약 있다면)
-            const writerInputContent = document.getElementById('writerInputContent'); // 작성하는 본문 textarea
-            
-            if (writerInputTitle) writerInputTitle.value = '';
+            // 입력창 및 소제목 초기화
+            const writerSubtitleInput = document.getElementById('writerSubtitleInput');
+            const writerInputContent = document.getElementById('writerInputContent');
+            if (writerSubtitleInput) writerSubtitleInput.value = '';
             if (writerInputContent) writerInputContent.value = '';
 
-            // 해당 relayId 전용 임시저장 원고 불러오기 (오직 이 릴레이 ID에 저장된 것만 불러옴)
-            checkAndLoadDraftForWriter(targetRelay.id);
+            // 💡 [유지] 해당 relayId 전용 임시저장 원고 불러오기 복원!
+            if (typeof checkAndLoadDraftForWriter === 'function') {
+                checkAndLoadDraftForWriter(targetRelay.id);
+            }
 
             // 바이트 카운터 초기화/갱신
             const textarea = document.getElementById('writerInputContent');
@@ -2757,6 +2770,7 @@ function getNationCode(selectElementId) {
 
             openModal('writerModal');
         }
+        
         function saveRelayDraft() {
             const relayId = document.getElementById('activeRelayId').value;
             const subtitle = document.getElementById('writerSubtitleInput').value;
@@ -2811,43 +2825,66 @@ function getNationCode(selectElementId) {
                 return;
             }
 
-            if (targetRelay) {
-                if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
-                    targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
-                }
-                const nextCh = targetRelay.chapters.length + 1;
-                
-                targetRelay.chapters.push({
-                    ch: nextCh,
-                    title: subtitle,
-                    author: currentUserId,
-                    content: content,
-                    votes: 0
-                });
-                targetRelay.currentCh = nextCh;
-                
-                const candidatesCount = targetRelay.chapters.filter(c => c.ch > 1).length;
+            if (!targetRelay) return;
 
-                if (isFinal) {
-                    targetRelay.phase = 'completed';
-                    targetRelay.completedAt = Date.now();
-                } else if (candidatesCount >= 5) {
-                    // 💡 [수정] 오직 5명이 꽉 찼을 때만 투표(vote) 단계로 전환! 아니면 5일 동안 이어쓰기('write') 유지
-                    targetRelay.phase = 'vote';
-                } else {
-                    targetRelay.phase = 'write';
-                }
-                
-                targetRelay.progress = `${candidatesCount}/5 참여중`;
-                
-                localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+            if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
+                targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName, content: targetRelay.content }];
             }
 
-            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다!" : "✨ 이어쓰기 후보작이 제출되었습니다! (5일간의 집필 기간 동안 추가 참여자를 모집합니다)");
+            const currentTargetCh = targetRelay.chapters.length > 0 ? targetRelay.chapters[targetRelay.chapters.length - 1].ch + 1 : 2;
+            
+            // 💡 [핵심 방어] 이미 이 회차에 참여했는지 엄격 검사
+            const alreadySubmitted = targetRelay.chapters.some(c => c.ch === currentTargetCh && c.author === currentUserId);
+            if (alreadySubmitted) {
+                alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
+                closeModal('writerModal');
+                return;
+            }
+
+            // 크리에이터 스튜디오 이력 추가
+            if (!creatorStudioHistory.some(h => h.id === relayId && h.ch === currentTargetCh)) {
+                creatorStudioHistory.unshift({ id: relayId, title: targetRelay.title, type: 'relay', status: `제 ${currentTargetCh}화 집필참여`, share: '지분산정중', ch: currentTargetCh });
+                renderStudioHistoryList();
+            }
+
+            const nextCh = currentTargetCh;
+            targetRelay.chapters.push({
+                ch: nextCh,
+                title: subtitle,
+                author: currentUserId,
+                content: content,
+                votes: 0
+            });
+            targetRelay.currentCh = nextCh;
+            
+            const candidatesCount = targetRelay.chapters.filter(c => c.ch === currentTargetCh).length;
+
+            if (isFinal) {
+                targetRelay.phase = 'completed';
+                targetRelay.completedAt = Date.now();
+            } else if (candidatesCount >= 5) {
+                targetRelay.phase = 'vote'; // 5명 꽉 차면 투표 모드
+            } else {
+                targetRelay.phase = 'write'; // 5일간 이어쓰기 집필 모드 유지
+            }
+            
+            targetRelay.progress = `${candidatesCount}/5 참여중`;
+            
+            // 💡 [유지] 제출 완료 시 해당 릴레이의 임시저장 원고 자동 청소 로직 복원!
+            if (typeof relayDrafts !== 'undefined') {
+                relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
+                localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
+            }
+
+            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+            renderStudioHistoryList();
+
+            alert(isFinal ? "🏁 릴레이가 완결 처리되었습니다!" : `✨ 제 ${currentTargetCh}화 이어쓰기 후보작이 제출되었습니다! (현재 참여: ${candidatesCount}/5명)`);
             closeModal('writerModal');
             handleListCardClick(relayId);
+            renderRelayListContent();
         }
-
+        
         function openCreatorReadModal(title, totalCh, author) {
             activeCreatorTitle = title;
             document.getElementById('creatorModalTitle').innerText = `'${title}' 회차 목록`;
