@@ -1376,6 +1376,15 @@ div[id$="-card-container"] p {
     <!-- 🚀 JAVASCRIPT LOGIC ENGINE                 -->
     <!-- ========================================== -->
     <script>
+
+     try {
+                if (typeof Pi !== 'undefined') {
+                    Pi.init({ version: "2.0", sandbox: true });
+                }
+            } catch (error) {
+                console.error("Pi SDK initialization failed:", error);
+            }
+        
         const MIN_BYTES = 1500;
         const MAX_BYTES = 6000;
         const CURRENCY_UNIT = "Test-Pi"; // 💡 나중에 정식 런칭 시 "Pi"로만 바꾸면 전체 일괄 변경!
@@ -1839,13 +1848,7 @@ function getNationCode(selectElementId) {
         // ==========================================
 
         window.onload = function() {
-            try {
-                if (typeof Pi !== 'undefined') {
-                    Pi.init({ version: "2.0", sandbox: true });
-                }
-            } catch (error) {
-                console.error("Pi SDK initialization failed:", error);
-            }
+            
 
             loadDraftsFromStorage(); // 👈 이 줄을 여기에 추가! (페이지 켜질 때 임시저장 글 불러오기)
             renderAllSubscriptionActivities(); // 💡 나의 구독 활동 4종 전체 초기화
