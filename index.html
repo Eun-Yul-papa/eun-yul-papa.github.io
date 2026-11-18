@@ -1381,6 +1381,7 @@ div[id$="-card-container"] p {
         const CURRENCY_UNIT = "Test-Pi"; // 💡 나중에 정식 런칭 시 "Pi"로만 바꾸면 전체 일괄 변경!
         
         let currentUserId = "wnalsdud88"; 
+        let relayDrafts = [];
         let subAdminList = ["wnalsdud88"]; 
 
         let userRewardedPi = 0.0;
@@ -2901,44 +2902,38 @@ function submitWriterContentWithPiPayment() {
 
     // 💳 Pi SDK 결제 실행 (샌드박스 모드)
     Pi.createPayment({
-        amount: 1.0,
-        memo: `Deep Blue Sea - ${targetRelay.title} 제 ${targetWritingCh}화 이어쓰기 참가비`,
-        metadata: { relayId: relayId, chapter: targetWritingCh, type: "relay_entry" },
-        callbacks: {
-            onReadyForServerApproval: async (paymentId) => {
-                try {
-                    await fetch('/api/payment/approve', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ paymentId })
-                    });
-                } catch (e) {
-                    console.warn("로컬 테스트 모드: 서버 승인 스킵");
-                }
-            },
-            onReadyForServerCompletion: async (paymentId, txid) => {
-                try {
-                    await fetch('/api/payment/complete', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ paymentId, txid })
-                    });
-                } catch (e) {
-                    console.warn("로컬 테스트 모드: 서버 완료 스킵");
-                }
-
-                // 💡 결제 승인 완료 후 원본 등록 로직 실행
-                executeActualWriterSubmission(relayId, subtitle, content);
-            },
-            onCancel: (paymentId) => {
-                alert("사용자가 결제를 취소했습니다.");
-            },
-            onError: (error, payment) => {
-                console.error("결제 에러 발생:", error);
-                alert("결제 중 오류가 발생했습니다. 다시 시도해주세요.");
-            }
+    amount: 1.0,
+    memo: "Deep Blue Sea - 릴레이 이어쓰기 참가비",
+    metadata: { relayId: relayId, type: "relay_entry" },
+    callbacks: {
+        onReadyForServerApproval: async (paymentId) => {
+            try {
+                await fetch('/api/payment/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paymentId })
+                });
+            } catch (e) { console.warn("로컬 승인 스킵"); }
+        },
+        onReadyForServerCompletion: async (paymentId, txid) => {
+            try {
+                await fetch('/api/payment/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paymentId, txid })
+                });
+            } catch (e) { console.warn("로컬 완료 스킵"); }
+            executeActualWriterSubmission(relayId, subtitle, content);
+        },
+        onCancel: (paymentId) => {
+            alert("사용자가 결제를 취소했습니다.");
+        },
+        onError: (error, payment) => {
+            console.error("결제 에러:", error);
+            alert("결제 중 오류가 발생했습니다.");
         }
-    });
+     }
+});
 }
 
 // ✍️ 2. 결제 완료 후 실행되는 실제 원고 등록 함수 (원본 로직 100% 보존)
