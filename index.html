@@ -2882,7 +2882,7 @@ function getNationCode(selectElementId) {
         }
         
         // 🚀 1. 이어쓰기 제출 시 Pi SDK 결제 창 호출 및 서버 승인/완료 통신
-function submitWriterContentWithPiPayment() {
+async function submitWriterContentWithPiPayment() {
     const relayId = document.getElementById('activeRelayId').value;
     const subtitle = document.getElementById('writerSubtitleInput').value.trim() || "이어지는 이야기";
     const content = document.getElementById('writerInputContent').value.trim();
