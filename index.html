@@ -2523,41 +2523,41 @@ function getNationCode(selectElementId) {
 
         // 📖 이전까지 스토리 보기 모달 오픈 함수
         function openPrevChaptersModal() {
-            closeModal('integratedRelayModal');
-            
-            // 💡 현재 선택된 릴레이 ID 가져오기 (input hidden 등에 저장된 값 활용)
-            const activeIdInput = document.getElementById('activeRelayId');
-            const relayId = activeIdInput ? activeIdInput.value : null;
-            
-            const targetRelay = relayMockList.find(r => r.id === relayId);
-            const prevBodyElement = document.getElementById('prevChaptersBody');
-            
-            if (prevBodyElement) {
-                if (targetRelay && targetRelay.chapters && targetRelay.chapters.length > 0) {
-                    // 💡 실제 릴레이에 작성된 chapters 데이터를 동적으로 조립
-                    let dynamicStoryText = '';
-                    targetRelay.chapters.forEach(ch => {
-                        dynamicStoryText += `제${ch.ch}화 : ${ch.title}\n`;
-                        dynamicStoryText += `(작가 : ${ch.author || targetRelay.creatorName})\n`;
-                        dynamicStoryText += `${ch.content}\n\n--------------------------------------------------\n\n`;
-                    });
-                    prevBodyElement.innerText = dynamicStoryText.trim();
-                } else if (targetRelay && targetRelay.content) {
-                    // chapters가 없지만 content가 있는 경우
-                    prevBodyElement.innerText = targetRelay.content;
-                } else {
-                    // 데이터가 없을 때의 기본 문구
-                    prevBodyElement.innerText = "아직 작성된 이전 회차 내용이 없습니다.";
-                }
-            }
+    closeModal('integratedRelayModal');
 
-            const modalElem = document.getElementById('relayPrevChaptersModal');
-            if (modalElem) {
-                modalElem.classList.add('z-top');
-                openModal('relayPrevChaptersModal');
-            }
+    const activeIdInput = document.getElementById('activeRelayId');
+    const relayId = activeIdInput ? activeIdInput.value : null;
+    const targetRelay = relayMockList.find(r => r.id === relayId);
+    const prevBodyElement = document.getElementById('prevChaptersBody');
+
+    if (prevBodyElement) {
+        if (targetRelay && targetRelay.chapters && targetRelay.chapters.length > 0) {
+            const maxCh = Math.max(...targetRelay.chapters.map(c => c.ch));
+            // 현재 집필/투표 중인 회차(maxCh > 1일 때 해당 회차 후보작)는 제외하고 확정된 이전 회차만 표시
+            const confirmedChapters = maxCh > 1
+                ? targetRelay.chapters.filter(c => c.ch < maxCh)
+                : targetRelay.chapters;
+
+            let dynamicStoryText = '';
+            confirmedChapters.forEach(ch => {
+                dynamicStoryText += `제${ch.ch}화 : ${ch.title}\n`;
+                dynamicStoryText += `(작가 : ${ch.author || targetRelay.creatorName})\n`;
+                dynamicStoryText += `${ch.content}\n\n--------------------------------------------------\n\n`;
+            });
+            prevBodyElement.innerText = dynamicStoryText.trim() || "아직 확정된 이전 회차 내용이 없습니다.";
+        } else if (targetRelay && targetRelay.content) {
+            prevBodyElement.innerText = targetRelay.content;
+        } else {
+            prevBodyElement.innerText = "아직 작성된 이전 회차 내용이 없습니다.";
         }
+    }
 
+    const modalElem = document.getElementById('relayPrevChaptersModal');
+    if (modalElem) {
+        modalElem.classList.add('z-top');
+        openModal('relayPrevChaptersModal');
+    }
+}
         function triggerReportAction(contentId, contentType) {
             const reportKey = `reported_${contentId}_${currentUserId}`;
             if (localStorage.getItem(reportKey)) {
@@ -2761,6 +2761,38 @@ function getNationCode(selectElementId) {
 
             openModal('integratedRelayModal');
         }
+
+        function openCandidateDetailReader(relayId, candIndex) {
+    const targetRelay = relayMockList.find(r => r.id === relayId);
+    if (!targetRelay || !targetRelay.chapters) return;
+
+    const candidates = targetRelay.chapters.filter(c => c.ch > 1);
+    const cand = candidates[candIndex];
+    if (!cand) return;
+
+    const titleEl = document.getElementById('candidateReaderTitle');
+    const bodyEl = document.getElementById('candidateReaderBody');
+    const voteBtn = document.getElementById('btnVoteThisCandidate');
+
+    if (titleEl) {
+        titleEl.innerText = `제 ${cand.ch}화 후보 : ${cand.title || '무제'} (작가: ${cand.author})`;
+    }
+    if (bodyEl) {
+        bodyEl.innerText = cand.content || '';
+    }
+    if (voteBtn) {
+        voteBtn.onclick = function () {
+            submitVoteForCandidate(relayId, cand.ch);
+        };
+    }
+
+    closeModal('integratedRelayModal');
+    const modal = document.getElementById('candidateReaderModal');
+    if (modal) {
+        modal.style.zIndex = '10500';
+        openModal('candidateReaderModal');
+    }
+}
         
         // 이어쓰기 제출 시 중복 참여 체크 및 5일 기간 유지 로직
         function submitRelayContribution(relayId) {
