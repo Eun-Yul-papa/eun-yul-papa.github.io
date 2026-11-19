@@ -3019,7 +3019,7 @@ async function submitWriterContentWithPiPayment() {
         );
     } catch (err) {
         console.error("Pi.createPayment 실행 실패:", err);
-        alert("결제 모듈을 호출하는 중 문제가 발생했습니다: " + (err?.message || err));
+        alert("결제 모듈 호출 에러: " + (err?.name || "") + " / " + (err?.message || JSON.stringify(err)));
     }
 }
 
