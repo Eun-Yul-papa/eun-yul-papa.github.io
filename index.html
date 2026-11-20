@@ -945,14 +945,27 @@ div[id$="-card-container"] p {
                 <button class="btn btn-primary" id="btnVoteThisCandidate" style="flex:2;">🗳️ 이 글에 투표하기</button>
                 <button class="btn btn-outline" style="flex:1; border-color:var(--danger-red); color:var(--danger-red);" onclick="triggerReportAction('cand_active', '릴레이 후보작')">🚨 신고</button>
             </div>
-            <button class="btn btn-outline" style="margin-top: 8px;" onclick="closeModal('candidateReaderModal'); openModal('readVoteModal');">목록으로 돌아가기</button>
+            <button class="btn btn-outline" id="btnBackFromCandidateReader" style="margin-top: 8px;" onclick="closeModal('candidateReaderModal'); openModal('readVoteModal');">목록으로 돌아가기</button>
         </div>
     </div>
 
+    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center;">
+    <div style="font-size: 0.82rem; color: var(--gold-star); font-weight: 700; margin-bottom: 8px;" id="archiveRatingStatusText">
+        ⭐ 이 작품에 별점을 남겨주세요!
+    </div>
+    <div style="display: flex; justify-content: center; gap: 6px;">
+        <button class="page-btn" onclick="rateArchiveBook(1)">⭐ 1점</button>
+        <button class="page-btn" onclick="rateArchiveBook(2)">⭐ 2점</button>
+        <button class="page-btn" onclick="rateArchiveBook(3)">⭐ 3점</button>
+        <button class="page-btn" onclick="rateArchiveBook(4)">⭐ 4점</button>
+        <button class="page-btn" onclick="rateArchiveBook(5)">⭐ 5점</button>
+    </div>
+</div>
+    
     <div class="modal-overlay z-top" id="chapterCommentModal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title" id="commentModalTitle">💬 회차별 댓글 소통방</div>
+                <div class="modal-title" id="commentModalTitle">💬 작품 댓글 소통방</div>
                 <button class="close-btn" onclick="closeModal('chapterCommentModal')">✕</button>
             </div>
             <div style="font-size: 0.78rem; color: var(--warning-orange); background: rgba(251,191,36,0.12); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; line-height: 1.5;">
@@ -1105,7 +1118,7 @@ div[id$="-card-container"] p {
             <div class="reader-body theme-dark notranslate" id="archiveReaderBody" style="min-height: 250px; font-size: 1.02rem;"></div>
 
             <button class="btn btn-outline" style="border-color: var(--success-green); color: var(--success-green); margin-bottom: 10px;" onclick="openChapterCommentModal()">
-                💬 이 회차 댓글 소통방 입장하기
+                💬 댓글 소통방 입장하기
             </button>
 
             <div style="display: flex; gap: 8px; margin-top: 8px;" id="archiveReaderBottomNav">
@@ -2513,6 +2526,11 @@ function getNationCode(selectElementId) {
         }
     }
 
+    const statusEl = document.getElementById('archiveRatingStatusText');
+if (statusEl && item) {
+    const avg = item.ratingCount ? (item.ratingSum / item.ratingCount).toFixed(1) : '0.0';
+    statusEl.innerText = `⭐ 현재 평균 별점: ${avg}점 (${item.ratingCount || 0}명 참여) — 별점을 선택하세요`;
+}
     // 아이폰 등 모바일 터치 레이어 꼬임 방지를 위한 z-index 보장
     const modalElem = document.getElementById('archiveChapterReaderModal');
     if (modalElem) {
@@ -2762,7 +2780,7 @@ function getNationCode(selectElementId) {
             openModal('integratedRelayModal');
         }
 
-        function openCandidateDetailReader(relayId, candIndex) {
+        function openCandidateDetailReader(relayId, candIndex, fromVoteModal = false) {
     const targetRelay = relayMockList.find(r => r.id === relayId);
     if (!targetRelay || !targetRelay.chapters) return;
 
@@ -2773,6 +2791,7 @@ function getNationCode(selectElementId) {
     const titleEl = document.getElementById('candidateReaderTitle');
     const bodyEl = document.getElementById('candidateReaderBody');
     const voteBtn = document.getElementById('btnVoteThisCandidate');
+    const backBtn = document.getElementById('btnBackFromCandidateReader');
 
     if (titleEl) {
         titleEl.innerText = `제 ${cand.ch}화 후보 : ${cand.title || '무제'} (작가: ${cand.author})`;
@@ -2780,20 +2799,41 @@ function getNationCode(selectElementId) {
     if (bodyEl) {
         bodyEl.innerText = cand.content || '';
     }
+
+    // ✅ 투표 단계('vote')일 때만 투표 버튼 노출, 집필 단계('write')에서는 숨김
     if (voteBtn) {
+        const isVotePhase = (targetRelay.phase === 'vote');
+        voteBtn.style.display = isVotePhase ? 'block' : 'none';
         voteBtn.onclick = function () {
+            if (!isVotePhase) {
+                alert("⚠️ 현재는 집필 단계입니다. 투표 기간에만 투표할 수 있습니다.");
+                return;
+            }
             submitVoteForCandidate(relayId, cand.ch);
         };
     }
 
+    // ✅ 어디서 열었는지에 따라 돌아갈 모달 분기
+    if (backBtn) {
+        backBtn.onclick = function () {
+            closeModal('candidateReaderModal');
+            if (fromVoteModal) {
+                openModal('readVoteModal');
+            } else {
+                handleListCardClick(relayId);
+            }
+        };
+    }
+
     closeModal('integratedRelayModal');
+    closeModal('readVoteModal');
+
     const modal = document.getElementById('candidateReaderModal');
     if (modal) {
         modal.style.zIndex = '10500';
         openModal('candidateReaderModal');
     }
 }
-        
         // 이어쓰기 제출 시 중복 참여 체크 및 5일 기간 유지 로직
         function submitRelayContribution(relayId) {
             const targetRelay = relayMockList.find(r => r.id === relayId);
@@ -3408,43 +3448,62 @@ function executeActualWriterSubmission(relayId, subtitle, content) {
             openArchiveChapterReader(activeArchiveReaderItem, activeArchiveChapterIdx, isArchiveViewAllMode);
         }
 
-        function openChapterCommentModal() {
-            const commentListContainer = document.getElementById('chapterCommentListContainer');
-            if (commentListContainer) {
-                commentListContainer.innerHTML = `
-                    <div class="comment-item">
-                        <div class="comment-author"><span>OceanMaster ⓒ</span><span>2026-04-05</span></div>
-                        <div>정말 몰입감 넘치는 명작입니다! 다음 전개가 기대되네요.</div>
-                    </div>
-                `;
-            }
-            
-            // 💡 독서창(9999)보다 더 높은 최상단 z-index 부여
-            const modal = document.getElementById('chapterCommentModal');
-            if (modal) {
-                modal.style.zIndex = '10500';
-                openModal('chapterCommentModal');
-            }
-        }
+        // 💬 작품 통합 댓글 소통방 열기 (작품 ID 기준으로 댓글 유지)
+function openChapterCommentModal() {
+    if (!activeArchiveReaderItem) return;
+    if (!activeArchiveReaderItem.comments) {
+        activeArchiveReaderItem.comments = [];
+    }
+
+    const titleEl = document.getElementById('commentModalTitle');
+    if (titleEl) titleEl.innerText = `💬 [${activeArchiveReaderItem.title}] 댓글 소통방`;
+
+    renderArchiveComments(if (list.length === 0));
+
+    const modal = document.getElementById('chapterCommentModal');
+    if (modal) {
+        modal.style.zIndex = '10500';
+        openModal('chapterCommentModal');
+    }
+}
+
+        function renderArchiveComments() {
+    const commentListContainer = document.getElementById('chapterCommentListContainer');
+    if (!commentListContainer || !activeArchiveReaderItem) return;
+
+    const list = activeArchiveReaderItem.comments || [];
+        if (list.length === 0) {
+        commentListContainer.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:16px; font-size:0.82rem;">아직 등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>`;
+        return;
+    }
+    commentListContainer.innerHTML = list.map(c => `
+        <div class="comment-item">
+            <div class="comment-author"><span>${c.author}</span><span>${c.date}</span></div>
+            <div>${c.text}</div>
+        </div>
+    `).join('');
+}
+        
         function submitChapterComment() {
-            const textInput = document.getElementById('inputCommentText');
-            if (!textInput || !textInput.value.trim()) {
-                alert("댓글 내용을 입력해주세요.");
-                return;
-            }
-            const commentListContainer = document.getElementById('chapterCommentListContainer');
-            if (commentListContainer) {
-                const newCommentHtml = `
-                    <div class="comment-item">
-                        <div class="comment-author"><span>${currentUserId}</span><span>방금 전</span></div>
-                        <div>${textInput.value.trim()}</div>
-                    </div>
-                `;
-                commentListContainer.innerHTML = newCommentHtml + commentListContainer.innerHTML;
-            }
-            textInput.value = '';
-            alert("💬 댓글이 등록되었습니다!");
-        }
+    const textInput = document.getElementById('inputCommentText');
+    if (!textInput || !textInput.value.trim()) {
+        alert("댓글 내용을 입력해주세요.");
+        return;
+    }
+    if (!activeArchiveReaderItem) return;
+
+    if (!activeArchiveReaderItem.comments) activeArchiveReaderItem.comments = [];
+    const isCreator = (activeArchiveReaderItem.creatorName === currentUserId);
+    activeArchiveReaderItem.comments.unshift({
+        author: isCreator ? `${currentUserId} ⓒ` : currentUserId,
+        date: new Date().toISOString().split('T')[0],
+        text: textInput.value.trim()
+    });
+
+    textInput.value = '';
+    renderArchiveComments();
+    alert("💬 댓글이 등록되었습니다!");
+}
         function openModal(id) { 
             const modal = document.getElementById(id);
             if (modal) modal.style.display = 'flex'; 
@@ -3597,35 +3656,62 @@ function executeActualWriterSubmission(relayId, subtitle, content) {
         }
 
         function renderVoteCandidateList(targetRelay) {
-            const container = document.getElementById('candidateListContainer');
-            if (!container) return;
+    const container = document.getElementById('candidateListContainer');
+    if (!container) return;
 
-            const chapters = targetRelay.chapters || [];
-            let candidates = chapters.filter(c => c.ch >= targetRelay.currentCh || c.votes !== undefined);
-            
-            if (candidates.length === 0 && chapters.length > 0) {
-                candidates.push(chapters[chapters.length - 1]);
-            }
+    const chapters = targetRelay.chapters || [];
+    let candidates = chapters.filter(c => c.ch >= targetRelay.currentCh || c.votes !== undefined);
 
-            let html = '';
-            candidates.forEach((cand, idx) => {
-                html += `
-                    <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glow); padding: 14px; border-radius: 12px; margin-bottom: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <span style="font-weight: 800; color: var(--warning-orange);">후보 #${idx + 1} : ${cand.title || '무제'}</span>
-                            <span style="font-size: 0.75rem; color: var(--success-green);">작자: ${cand.author || '익명'}</span>
-                        </div>
-                        <p style="font-size: 0.85rem; color: var(--text-bright); line-height: 1.6; margin-bottom: 10px; white-space: pre-wrap;">${cand.content}</p>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.78rem; color: var(--primary-cyan);">현재 득표수: ${cand.votes || 0}표</span>
-                            <button class="btn btn-primary" style="width: auto; margin: 0; padding: 6px 12px; font-size: 0.78rem;" onclick="submitVoteForCandidate('${targetRelay.id}', '${targetRelay.title}', '${cand.title || '후보'}')">이 후보에 투표하기 🗳️</button>
-                        </div>
+    if (candidates.length === 0 && chapters.length > 0) {
+        candidates.push(chapters[chapters.length - 1]);
+    }
+
+    let html = '';
+    candidates.forEach((cand, idx) => {
+        const chapterNum = cand.ch ?? (targetRelay.currentCh || 2);
+        html += `
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glow); padding: 14px; border-radius: 12px; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-weight: 800; color: var(--warning-orange);">후보 #${idx + 1} : ${cand.title || '무제'}</span>
+                    <span style="font-size: 0.75rem; color: var(--success-green);">작자: ${cand.author || '익명'}</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-bright); line-height: 1.6; margin-bottom: 10px; white-space: pre-wrap;">${cand.content}</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.78rem; color: var(--primary-cyan);">현재 득표수: ${cand.votes || 0}표</span>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn btn-outline" style="width: auto; margin: 0; padding: 6px 10px; font-size: 0.78rem;" onclick="openCandidateDetailReader('${targetRelay.id}', ${idx}, true)">본문 보기</button>
+                        <button class="btn btn-primary" style="width: auto; margin: 0; padding: 6px 12px; font-size: 0.78rem;" onclick="submitVoteForCandidate('${targetRelay.id}', ${chapterNum})">이 후보에 투표하기 🗳️</button>
                     </div>
-                `;
-            });
+                </div>
+            </div>
+        `;
+    });
 
-            container.innerHTML = html || '<p style="text-align:center; color:var(--text-sub); padding:20px;">등록된 후보작이 없습니다.</p>';
-        }
+    container.innerHTML = html || '<p style="text-align:center; color:var(--text-sub); padding:20px;">등록된 후보작이 없습니다.</p>';
+}
+
+        // ⭐ 작품 별점 매기기 (중복 평가 방지 + 평균 별점 계산)
+function rateArchiveBook(score) {
+    if (!activeArchiveReaderItem) return;
+    const rateKey = `rated_archive_${activeArchiveReaderItem.id}_${currentUserId}`;
+    if (localStorage.getItem(rateKey)) {
+        alert("⚠️ 이미 이 작품에 별점을 등록하셨습니다.");
+        return;
+    }
+
+    activeArchiveReaderItem.ratingSum = (activeArchiveReaderItem.ratingSum || 0) + score;
+    activeArchiveReaderItem.ratingCount = (activeArchiveReaderItem.ratingCount || 0) + 1;
+    localStorage.setItem(rateKey, String(score));
+
+    const avg = (activeArchiveReaderItem.ratingSum / activeArchiveReaderItem.ratingCount).toFixed(1);
+    const statusEl = document.getElementById('archiveRatingStatusText');
+    if (statusEl) {
+        statusEl.innerText = `⭐ 현재 평균 별점: ${avg}점 (${activeArchiveReaderItem.ratingCount}명 참여)`;
+    }
+
+    alert(`⭐ ${score}점 별점이 반영되었습니다! (평균 ${avg}점)`);
+    renderArchiveList();
+}
         
     </script>
 </body>
