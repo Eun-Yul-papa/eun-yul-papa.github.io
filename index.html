@@ -1867,10 +1867,8 @@ function getNationCode(selectElementId) {
             })
         });
         const result = await response.json();
-        if (response.ok && result.success && result.data) {
-            newRelayId = result.data.relayId || result.data._id || newRelayId;
-            if (result.data.createdAt) {
-                createdAtTs = new Date(result.data.createdAt).getTime();
+            if (!response.ok || !result.success) {
+            throw new Error(result.message || `서버 저장 실패 (${response.status})`);
             }
         }
     } catch (error) {
