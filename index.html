@@ -1835,16 +1835,16 @@ function getNationCode(selectElementId) {
     const genreSelect = document.getElementById('selectGenre');
     const lengthSelect = document.getElementById('selectLength');
 
-    const title = titleInput ? titleInput.value.trim() : "무제 스토리";
-    const subtitle = subtitleInput ? subtitleInput.value.trim() : "제 1화";
-    const content = contentInput ? contentInput.value.trim() : "";
-    const format = formatSelect ? formatSelect.value : "소설";
-    const genre = genreSelect ? genreSelect.value : "공상 과학";
-    const lengthType = lengthSelect ? lengthSelect.value : "단편";
-    const nationCode = getNationCode('userLangSelect');
+    const title = titleInput ? titleInput.value.trim() : '무제 스토리';
+    const subtitle = subtitleInput ? subtitleInput.value.trim() : '제 1화';
+    const content = contentInput ? contentInput.value.trim() : '';
+    const format = formatSelect ? formatSelect.value : '소설';
+    const genre = genreSelect ? genreSelect.value : '공상 과학';
+    const lengthType = lengthSelect ? lengthSelect.value : '단편';
+    const nationCode = typeof getNationCode === 'function' ? getNationCode('userLangSelect') : 'KR';
 
     if (!title || !content) {
-        alert("제목과 본문을 모두 입력해주세요.");
+        alert('제목과 본문을 모두 입력해주세요.');
         return;
     }
 
@@ -1881,8 +1881,8 @@ function getNationCode(selectElementId) {
         }
         savedToServer = true;
     } catch (error) {
-        console.warn("⚠️ 백엔드 서버 통신 실패:", error);
-        alert("⚠️ 서버 DB 저장에 실패했습니다: " + (error?.message || error));
+        console.warn('⚠️ 백엔드 서버 통신 실패:', error);
+        alert('⚠️ 서버 DB 저장에 실패했습니다: ' + (error?.message || error));
     }
 
     const newRelayObj = {
@@ -1922,20 +1922,17 @@ function getNationCode(selectElementId) {
     if (contentInput) contentInput.value = '';
     localStorage.removeItem(`relay_draft_${newRelayId}`);
 
-    alert(savedToServer
-        ? `🎉 '${title}' 스토리 릴레이가 DB에 저장되었습니다!`
-        : `ℹ️ '${title}' 릴레이가 로컬 화면에만 반영되었습니다.`
-    );
-
     closeModal('createModal');
-    updateRelayHubBadges();
+    if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
+    if (typeof showRelayListView === 'function') showRelayListView('write');
+    if (typeof renderRelayListContent === 'function') renderRelayListContent();
 
-    if (typeof showRelayListView === 'function') {
-        showRelayListView('write');
-    }
-    if (typeof renderRelayListContent === 'function') {
-        renderRelayListContent();
-    }
+    setTimeout(() => {
+        alert(savedToServer
+            ? `🎉 '${title}' 스토리 릴레이가 DB에 저장되었습니다!`
+            : `ℹ️ '${title}' 릴레이가 로컬 화면에만 반영되었습니다.`
+        );
+    }, 50);
 }
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
