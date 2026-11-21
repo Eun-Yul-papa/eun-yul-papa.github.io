@@ -457,6 +457,91 @@ div[id$="-card-container"] p {
     word-break: break-word !important;
 }
 
+.relay-list-row-v2 {
+    background: rgba(13, 33, 66, 0.88);
+    border: 1px solid var(--border-glow);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.relay-list-row-v2:hover {
+    border-color: var(--primary-cyan);
+    background: rgba(56, 189, 248, 0.12);
+}
+.relay-list-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.relay-list-line1 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.relay-list-nation {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(56, 189, 248, 0.18);
+    color: var(--primary-cyan);
+}
+.relay-list-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-bright);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.relay-list-line2 {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-sub);
+}
+.relay-list-action-box {
+    flex-shrink: 0;
+    min-width: 78px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--primary-cyan);
+    background: rgba(56, 189, 248, 0.18);
+    color: var(--primary-cyan);
+    font-weight: 800;
+    line-height: 1.25;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+.relay-list-action-box.vote-mode {
+    border-color: var(--warning-orange);
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--warning-orange);
+}
+.relay-list-action-main {
+    font-size: 0.8rem;
+}
+.relay-list-action-sub {
+    font-size: 0.68rem;
+    opacity: 0.95;
+}
+
     /* 💡 허브와 목록 뷰가 절대 겹치지 않도록 강제 제어 */
 #relayHubView, #creatorHubView, #archiveHubView {
     display: flex;
@@ -2269,15 +2354,31 @@ function getNationCode(selectElementId) {
                 item.progress = participantStatus;
 
                 if (isListMode) {
-                    html += `
-                        <div class="board-list-row" onclick="handleListCardClick('${item.id}')">
-                            <span class="board-col-num">${item.nation}</span>
-                            <span class="board-col-title">${item.title}</span>
-                            <span class="board-col-meta" style="color:var(--success-green); font-weight:700;">👤 ${participantStatus} | ⏳ ${timerInfo.text}</span>
-                            <span class="board-col-action"><button class="board-mini-btn" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">${actionText}</button></span>
-                        </div>
-                    `;
-                } else {
+    const actionMain = isVote ? '투표하기' : '이어쓰기';
+    const actionSub = isVote ? '후보 투표' : `1.0 ${CURRENCY_UNIT}`;
+    html += `
+        <div class="relay-list-row-v2" onclick="handleListCardClick('${item.id}')">
+            <div class="relay-list-left">
+                <div class="relay-list-line1">
+                    <span class="relay-list-nation">${item.nation || 'KR'}</span>
+                    <span class="relay-list-title">${item.title}</span>
+                </div>
+                <div class="relay-list-line2">
+                    <span style="color: var(--primary-cyan); font-weight: 700;">${targetWritingCh}화</span>
+                    <span>·</span>
+                    <span style="color: var(--success-green); font-weight: 700;">${participantStatus}</span>
+                    <span>·</span>
+                    <span style="color: var(--warning-orange);">⏳ ${timerInfo.text}</span>
+                </div>
+            </div>
+            <button type="button" class="relay-list-action-box ${isVote ? 'vote-mode' : ''}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">
+                <span class="relay-list-action-main">${actionMain}</span>
+                <span class="relay-list-action-sub">${actionSub}</span>
+            </button>
+        </div>
+    `;
+}
+                else {
                     html += `
                         <div class="card" onclick="handleListCardClick('${item.id}')">
                             <div class="tag-group" style="justify-content: space-between; align-items: center;">
