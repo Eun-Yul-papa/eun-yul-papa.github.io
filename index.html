@@ -2271,111 +2271,125 @@ function getNationCode(selectElementId) {
         }
 
         function renderRelayListContent() {
-            const container = document.getElementById('relay-card-container');
-            if (!container) return;
+    const container = document.getElementById('relay-card-container');
+    if (!container) return;
 
-            const selectedNation = document.getElementById('relayCountrySelect') ? document.getElementById('relayCountrySelect').value : 'ALL';
-            
-            const now = Date.now();
-            let listChanged = false;
+    const selectedNation = document.getElementById('relayCountrySelect')
+        ? document.getElementById('relayCountrySelect').value
+        : 'ALL';
 
-            relayMockList.forEach(item => {
-                if (!item.createdAt) {
-                    item.createdAt = now;
-                }
-                const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
-                if (item.phase === 'write' && (now - item.createdAt >= FIVE_DAYS_MS)) {
-                    item.phase = 'vote';
-                    listChanged = true;
-                }
-            });
+    const now = Date.now();
+    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+    let listChanged = false;
 
-            if (listChanged) {
-                localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-            }
-
-            let filteredRelayList = relayMockList.filter(item => {
-                if (item.isBlind) return false;
-                if (selectedNation !== 'ALL' && item.nation !== selectedNation) return false;
-                if (typeof currentRelayHubMode !== 'undefined') {
-                    if (currentRelayHubMode === 'write') return item.phase === 'write';
-                    if (currentRelayHubMode === 'vote') return item.phase === 'vote';
-                }
-                return true;
-            });
-
-            if (filteredRelayList.length === 0) {
-                container.innerHTML = `<p style="text-align:center; color:var(--text-sub); padding:30px;">진행 중인 스토리 릴레이가 없습니다.</p>`;
-                return;
-            }
-
-            let html = '';
-            const isListMode = container.classList.contains('board-list-container');
-
-            filteredRelayList.forEach(item => {
-                const isVote = item.phase === 'vote';
-                const actionText = isVote ? '🗳️ 투표하기' : `✍️ 이어쓰기 (1.0 ${CURRENCY_UNIT})`;
-                const timerInfo = calculateRemainingTime(item.createdAt);
-                
-                const chapters = item.chapters || [{ ch: 1, title: item.title, author: item.creatorName || currentUserId, content: item.content || '' }];
-                
-                // 💡 [정확한 회차 계산] 확정된 최신 챕터와 다음에 작성할 챕터 번호 산출
-                let maxCh = Math.max(...chapters.map(c => c.ch));
-                let targetWritingCh = maxCh > 0 ? maxCh : 2;
-                
-                // 만약 현재 최고 번호 챕터에 투표가 완료되었거나 다음 단계라면 +1
-                const currentChCandidates = chapters.filter(c => c.ch === targetWritingCh);
-                // 만약 첫 개설(1화만 있는 상태)이라면 다음 작성 목표는 2화
-                if (chapters.length === 1 && chapters[0].ch === 1) {
-                    targetWritingCh = 2;
-                }
-
-                const actualCandidates = chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
-                const participantStatus = `${actualCandidates.length}/5 참여중`;
-                item.progress = participantStatus;
-
-                if (isListMode) {
-    const actionMain = isVote ? '투표하기' : '이어쓰기';
-    const actionSub = isVote ? '후보 투표' : `1.0 ${CURRENCY_UNIT}`;
-    html += `
-        <div class="relay-list-row-v2" onclick="handleListCardClick('${item.id}')">
-            <div class="relay-list-left">
-                <div class="relay-list-line1">
-                    <span class="relay-list-nation">${item.nation || 'KR'}</span>
-                    <span class="relay-list-title">${item.title}</span>
-                </div>
-                <div class="relay-list-line2">
-                    <span style="color: var(--primary-cyan); font-weight: 700;">${targetWritingCh}화</span>
-                    <span>·</span>
-                    <span style="color: var(--success-green); font-weight: 700;">${participantStatus}</span>
-                    <span>·</span>
-                    <span style="color: var(--warning-orange);">⏳ ${timerInfo.text}</span>
-                </div>
-            </div>
-            <button type="button" class="relay-list-action-box ${isVote ? 'vote-mode' : ''}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">
-                <span class="relay-list-action-main">${actionMain}</span>
-                <span class="relay-list-action-sub">${actionSub}</span>
-            </button>
-        </div>
-    `;
-}
-                else {
-                    html += `
-                        <div class="card" onclick="handleListCardClick('${item.id}')">
-                            <div class="tag-group" style="justify-content: space-between; align-items: center;">
-                                <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:var(--success-green);">👤 ${participantStatus}</span>
-                                <span class="tag tag-meta">${item.format || '소설 / 단편'}</span>
-                            </div>
-                            <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
-                            <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
-                            <div class="timer-info" style="color:var(--warning-orange); margin-bottom: 10px;">⏳ 남은 마감 시간: ${timerInfo.text}</div>
-                            <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')" style="width:100%; margin:0;">${actionText}</button>
-                        </div>
-                    `;
-                }
-            });
-            container.innerHTML = html;
+    relayMockList.forEach(item => {
+        if (!item.createdAt) {
+            item.createdAt = now;
+            listChanged = true;
         }
+        if (item.phase === 'write' && (now - item.createdAt >= FIVE_DAYS_MS)) {
+            item.phase = 'vote';
+            if (!item.voteStartedAt) {
+                item.voteStartedAt = item.createdAt + FIVE_DAYS_MS;
+            }
+            listChanged = true;
+        }
+        if (item.phase === 'vote' && !item.voteStartedAt) {
+            item.voteStartedAt = now;
+            listChanged = true;
+        }
+    });
+
+    if (listChanged) {
+        localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+    }
+
+    const filteredRelayList = relayMockList.filter(item => {
+        if (item.isBlind) return false;
+        if (selectedNation !== 'ALL' && item.nation !== selectedNation) return false;
+        if (typeof currentRelayHubMode !== 'undefined') {
+            if (currentRelayHubMode === 'write') return item.phase === 'write';
+            if (currentRelayHubMode === 'vote') return item.phase === 'vote';
+        }
+        return true;
+    });
+
+    if (filteredRelayList.length === 0) {
+        container.innerHTML = `<p style="text-align:center; color:var(--text-sub); padding:30px;">진행 중인 스토리 릴레이가 없습니다.</p>`;
+        return;
+    }
+
+    let html = '';
+    const isListMode = container.classList.contains('board-list-container');
+
+    filteredRelayList.forEach(item => {
+        const isVote = item.phase === 'vote';
+        const actionText = isVote ? '🗳️ 투표하기' : `✍️ 이어쓰기 (1.0 ${CURRENCY_UNIT})`;
+        const timerBaseTime = isVote
+            ? (item.voteStartedAt || item.createdAt || now)
+            : (item.createdAt || now);
+        const timerInfo = calculateRemainingTime(timerBaseTime, isVote);
+
+        const chapters = item.chapters || [{
+            ch: 1,
+            title: item.title,
+            author: item.creatorName || currentUserId,
+            content: item.content || ''
+        }];
+
+        let maxCh = Math.max(...chapters.map(c => c.ch));
+        let targetWritingCh = maxCh > 0 ? maxCh : 2;
+        if (chapters.length === 1 && chapters[0].ch === 1) {
+            targetWritingCh = 2;
+        }
+
+        const actualCandidates = chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
+        const participantStatus = `${actualCandidates.length}/5 참여중`;
+        const statusLabel = isVote ? `후보 ${actualCandidates.length}개` : participantStatus;
+        item.progress = participantStatus;
+
+        if (isListMode) {
+            const actionMain = isVote ? '투표하기' : '이어쓰기';
+            const actionSub = isVote ? '후보 투표' : `1.0 ${CURRENCY_UNIT}`;
+            html += `
+                <div class="relay-list-row-v2" onclick="handleListCardClick('${item.id}')">
+                    <div class="relay-list-left">
+                        <div class="relay-list-line1">
+                            <span class="relay-list-nation">${item.nation || 'KR'}</span>
+                            <span class="relay-list-title">${item.title}</span>
+                        </div>
+                        <div class="relay-list-line2">
+                            <span style="color: var(--primary-cyan); font-weight: 700;">${targetWritingCh}화</span>
+                            <span>·</span>
+                            <span style="color: ${isVote ? 'var(--warning-orange)' : 'var(--success-green)'}; font-weight: 700;">${statusLabel}</span>
+                            <span>·</span>
+                            <span style="color: var(--warning-orange);">⏳ ${timerInfo.text}</span>
+                        </div>
+                    </div>
+                    <button type="button" class="relay-list-action-box ${isVote ? 'vote-mode' : ''}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')">
+                        <span class="relay-list-action-main">${actionMain}</span>
+                        <span class="relay-list-action-sub">${actionSub}</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="card" onclick="handleListCardClick('${item.id}')">
+                    <div class="tag-group" style="justify-content: space-between; align-items: center;">
+                        <span class="tag tag-relay" style="background:rgba(74,222,128,0.15); color:${isVote ? 'var(--warning-orange)' : 'var(--success-green)'};">👤 ${statusLabel}</span>
+                        <span class="tag tag-meta">${item.format || '소설 / 단편'}</span>
+                    </div>
+                    <div class="title-with-flag"><span class="flag-badge">${item.nation}</span><h3>${item.title}</h3></div>
+                    <p style="font-size: 0.88rem; color: var(--text-sub); margin-bottom: 12px;">"${item.content}"</p>
+                    <div class="timer-info" style="color:var(--warning-orange); margin-bottom: 10px;">⏳ 남은 마감 시간: ${timerInfo.text}</div>
+                    <button class="btn ${isVote ? 'btn-outline' : 'btn-primary'}" onclick="event.stopPropagation(); handleListCardClick('${item.id}')" style="width:100%; margin:0;">${actionText}</button>
+                </div>
+            `;
+        }
+    });
+
+    container.innerHTML = html;
+}
         function renderCreatorListViewContent() {
             const container = document.getElementById('creator-card-container');
             const selectedNation = document.getElementById('creatorCountrySelect') ? document.getElementById('creatorCountrySelect').value : 'ALL';
@@ -2737,97 +2751,101 @@ if (statusEl && item) {
         }
 
         function handleListCardClick(relayId) {
-            const targetRelay = relayMockList.find(r => r.id === relayId);
-            if (!targetRelay) {
-                alert("해당 스토리 데이터를 찾을 수 없습니다.");
-                return;
-            }
+    const targetRelay = relayMockList.find(r => r.id === relayId);
+    if (!targetRelay) {
+        alert("해당 스토리 데이터를 찾을 수 없습니다.");
+        return;
+    }
 
-            document.getElementById('activeRelayId').value = targetRelay.id;
-            document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
-            document.getElementById('integratedTitle').innerText = targetRelay.title;
-            
-            if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
-                targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName || currentUserId, content: targetRelay.content || '' }];
-            }
+    document.getElementById('activeRelayId').value = targetRelay.id;
+    document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
+    document.getElementById('integratedTitle').innerText = targetRelay.title;
 
-            const chapters = targetRelay.chapters;
+    if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
+        targetRelay.chapters = [{
+            ch: 1,
+            title: targetRelay.title,
+            author: targetRelay.creatorName || currentUserId,
+            content: targetRelay.content || ''
+        }];
+    }
 
-            // 💡 [핵심 정교화] 직전 확정 챕터와 현재 작성 중인 챕터 번호를 정확히 분리
-            let latestConfirmedCh = chapters[0];
-            let targetWritingCh = 2;
+    const chapters = targetRelay.chapters;
 
-            const maxCh = Math.max(...chapters.map(c => c.ch));
-            // 만약 2화 이상에 대한 후보작들이 존재한다면 가장 높은 번호가 현재 작성 중인 회차
-            if (maxCh > 1) {
-                // 직전 확정된 챕터 찾기 (예: 2화가 진행 중이면 1화가 최신 확정본)
-                let confirmedList = chapters.filter(c => c.ch < maxCh);
-                if (confirmedList.length > 0) {
-                    latestConfirmedCh = confirmedList[confirmedList.length - 1];
-                }
-                targetWritingCh = maxCh;
-            } else {
-                targetWritingCh = 2;
-                latestConfirmedCh = chapters[0];
-            }
+    let latestConfirmedCh = chapters[0];
+    let targetWritingCh = 2;
 
-            // 현재 작성 중인 챕터 번호의 후보작들만 정확히 필터링 (1화 개설작 제외)
-            const candidates = chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
-
-            targetRelay.progress = `${candidates.length}/5 참여중`;
-            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-
-            const phaseNotice = document.getElementById('integratedPhaseNotice');
-            if (phaseNotice) {
-                if (targetRelay.phase === 'vote' || candidates.length >= 5) {
-                    phaseNotice.innerHTML = `🗳️ [제 ${targetWritingCh}화 후보작 투표 진행 중] (투표 기간: 3일)`;
-                } else {
-                    phaseNotice.innerHTML = `✍️ [제 ${targetWritingCh}화 이어쓰기 진행 중] (참여 인원: ${candidates.length}/5명)`;
-                }
-            }
-
-            // 1. 상단 본문: 직전 확정된 챕터 본문 출력
-            const storyBodyContainer = document.getElementById('integratedStoryBody');
-            if (storyBodyContainer) {
-                storyBodyContainer.innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || targetRelay.title}]\n(작가: ${latestConfirmedCh.author || targetRelay.creatorName})\n\n${latestConfirmedCh.content}`;
-            }
-
-            // 2. 중단: 현재 집필 경쟁 중인 후보작 목록 출력
-            const candidatePreviewContainer = document.getElementById('integratedCandidatePreviewContainer');
-            if (candidatePreviewContainer) {
-                if (candidates.length > 0) {
-                    let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:var(--success-green); margin-bottom:8px;">✍️ 현재 집필 경쟁 중인 제 ${targetWritingCh}화 목록 (${candidates.length}/5명)</div>`;
-                    candidates.forEach((c, idx) => {
-                        candHtml += `
-                            <div class="chapter-list-item" onclick="openCandidateDetailReader('${targetRelay.id}', ${idx})" style="padding: 10px 12px; margin-bottom: 6px; font-size: 0.82rem;">
-                                <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                    <b style="color:var(--primary-cyan);">${c.title || '무제'}</b> <span style="color:var(--text-sub);">| 작가: ${c.author}</span>
-                                </div>
-                                <span style="color:var(--primary-cyan); font-size:0.75rem; flex-shrink:0; margin-left:8px;">보기 ➔</span>
-                            </div>
-                        `;
-                    });
-                    candidatePreviewContainer.innerHTML = candHtml;
-                } else {
-                    candidatePreviewContainer.innerHTML = `<div style="font-size:0.80rem; color:var(--text-sub); background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; text-align:center;">아직 등록된 제 ${targetWritingCh}화 이어쓰기 경쟁작이 없습니다. 첫 도전자가 되어보세요! (0/5)</div>`;
-                }
-            }
-
-            // 3. 하단 버튼군 분기 (오직 '현재 작성 중인 회차'에 내가 썼는지만 검사)
-            const btnContainer = document.getElementById('integratedButtonContainer');
-            const alreadySubmittedByMe = candidates.some(c => c.author === currentUserId);
-
-            if (targetRelay.phase === 'vote' || candidates.length >= 5) {
-                btnContainer.innerHTML = `<button class="btn btn-outline" style="border-color: var(--warning-orange); color: var(--warning-orange); width:100%; margin:0;" onclick="openReadVoteModal('${targetRelay.id}')">🗳️ 후보작 열람 & 투표하기</button>`;
-            } else if (alreadySubmittedByMe) {
-                btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--success-green); color:var(--success-green);" disabled>✅ 이미 이 회차 이어쓰기에 참여하셨습니다</button>`;
-            } else {
-                btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="openWriterModal('${targetRelay.id}')">✍️ 제 ${targetWritingCh}화 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
-            }
-
-            openModal('integratedRelayModal');
+    const maxCh = Math.max(...chapters.map(c => c.ch));
+    if (maxCh > 1) {
+        const confirmedList = chapters.filter(c => c.ch < maxCh);
+        if (confirmedList.length > 0) {
+            latestConfirmedCh = confirmedList[confirmedList.length - 1];
         }
+        targetWritingCh = maxCh;
+    } else {
+        targetWritingCh = 2;
+        latestConfirmedCh = chapters[0];
+    }
 
+    const candidates = chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
+    const isVoteMode = (targetRelay.phase === 'vote' || candidates.length >= 5);
+
+    targetRelay.progress = `${candidates.length}/5 참여중`;
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+
+    const phaseNotice = document.getElementById('integratedPhaseNotice');
+    if (phaseNotice) {
+        if (isVoteMode) {
+            phaseNotice.innerHTML = `🗳️ [제 ${targetWritingCh}화 후보작 투표 진행 중] (투표 기간: 3일)`;
+        } else {
+            phaseNotice.innerHTML = `✍️ [제 ${targetWritingCh}화 이어쓰기 진행 중] (참여 인원: ${candidates.length}/5명)`;
+        }
+    }
+
+    const storyBodyContainer = document.getElementById('integratedStoryBody');
+    if (storyBodyContainer) {
+        storyBodyContainer.innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || targetRelay.title}]\n(작가: ${latestConfirmedCh.author || targetRelay.creatorName})\n\n${latestConfirmedCh.content}`;
+    }
+
+    const candidatePreviewContainer = document.getElementById('integratedCandidatePreviewContainer');
+    if (candidatePreviewContainer) {
+        if (candidates.length > 0) {
+            const headingText = isVoteMode
+                ? `🗳️ 제 ${targetWritingCh}화 후보작 목록 (${candidates.length}개)`
+                : `✍️ 현재 집필 경쟁 중인 제 ${targetWritingCh}화 목록 (${candidates.length}/5명)`;
+            const headingColor = isVoteMode ? 'var(--warning-orange)' : 'var(--success-green)';
+
+            let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:${headingColor}; margin-bottom:8px;">${headingText}</div>`;
+            candidates.forEach((c, idx) => {
+                candHtml += `
+                    <div class="chapter-list-item" onclick="openCandidateDetailReader('${targetRelay.id}', ${idx}, ${isVoteMode})" style="padding: 10px 12px; margin-bottom: 6px; font-size: 0.82rem;">
+                        <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            <b style="color:var(--primary-cyan);">${c.title || '무제'}</b> <span style="color:var(--text-sub);">| 작가: ${c.author}</span>
+                        </div>
+                        <span style="color:var(--primary-cyan); font-size:0.75rem; flex-shrink:0; margin-left:8px;">${isVoteMode ? '열람·투표 ➔' : '보기 ➔'}</span>
+                    </div>
+                `;
+            });
+            candidatePreviewContainer.innerHTML = candHtml;
+        } else {
+            candidatePreviewContainer.innerHTML = `<div style="font-size:0.80rem; color:var(--text-sub); background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; text-align:center;">등록된 제 ${targetWritingCh}화 후보작이 없습니다.</div>`;
+        }
+    }
+
+    const btnContainer = document.getElementById('integratedButtonContainer');
+    const alreadySubmittedByMe = candidates.some(c => c.author === currentUserId);
+
+    if (isVoteMode) {
+        btnContainer.innerHTML = '';
+    } else if (alreadySubmittedByMe) {
+        btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--success-green); color:var(--success-green);" disabled>✅ 이미 이 회차 이어쓰기에 참여하셨습니다</button>`;
+    } else {
+        btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="openWriterModal('${targetRelay.id}')">✍️ 제 ${targetWritingCh}화 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
+    }
+
+    openModal('integratedRelayModal');
+}
+        
         function openCandidateDetailReader(relayId, candIndex, fromVoteModal = false) {
     const targetRelay = relayMockList.find(r => r.id === relayId);
     if (!targetRelay || !targetRelay.chapters) return;
@@ -3579,25 +3597,25 @@ function openChapterCommentModal() {
         }
 
         // ⏳ 투표 기간은 정확히 3일(72시간)로 설정!
-        function calculateRemainingTime(createdAtTimestamp, isVotePhase = false) {
-            const DURATION_MS = isVotePhase ? (3 * 24 * 60 * 60 * 1000) : (5 * 24 * 60 * 60 * 1000);
-            const expireTime = createdAtTimestamp + DURATION_MS;
-            const now = Date.now();
-            const diff = expireTime - now;
+        function calculateRemainingTime(timestamp, isVotePhase = false) {
+    const baseTime = timestamp || Date.now();
+    const DURATION_MS = isVotePhase ? (3 * 24 * 60 * 60 * 1000) : (5 * 24 * 60 * 60 * 1000);
+    const expireTime = baseTime + DURATION_MS;
+    const diff = expireTime - Date.now();
 
-            if (diff <= 0) {
-                return { expired: true, text: "기간 마감됨" };
-            }
+    if (diff <= 0) {
+        return { expired: true, text: "기간 마감됨" };
+    }
 
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-            return {
-                expired: false,
-                text: `${days}일 ${hours}시간 ${minutes}분 남음`
-            };
-        }
+    return {
+        expired: false,
+        text: `${days}일 ${hours}시간 ${minutes}분 남음`
+    };
+}
         
         function updateRelayHubBadges() {
             const writeList = relayMockList.filter(item => !item.isBlind && item.phase === 'write');
