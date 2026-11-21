@@ -1664,67 +1664,70 @@ function getNationCode(selectElementId) {
         // ==========================================
 
         async function fetchRelayList() {
-            try {
-                // 💡 GitHub Pages 환경에서는 localhost:5000이 없으므로 타임아웃 또는 예외 발생 유도
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5초 내에 응답 없으면 로컬 모드로 즉시 전환
-                
-                const response = await fetch('http://localhost:5000/api/relay/list?nation=KR&phase=write', {
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                const result = await response.json();
-                
-                if (result.success && result.data) {
-                    const existingList = JSON.parse(localStorage.getItem('saved_relay_list')) || [];
-                    relayMockList = result.data.item.map(item => {
-                        const found = existingList.find(e => e.id === item._id);
-                        return {
-                            id: item._id,
-                            title: item.title,
-                            nation: item.nation || 'KR',
-                            format: item.format || '단편',
-                            progress: '0/5 참여중',
-                            phase: item.phase || 'write',
-                            createdAt: found ? found.createdAt : Date.now(),
-                            content: item.content || '',
-                            creatorName: 'wnalsdud88',
-                            isBlind: false,
-                            reportCount: 0,
-                            chapters: found ? found.chapters : []
-                        };
-                    });
-                }
-            } catch (error) {
-                // 💡 서버가 없는 환경(GitHub Pages)에서는 로컬스토리지 데이터를 우선 로드
-                let savedLocalList = JSON.parse(localStorage.getItem('saved_relay_list'));
-                
-                // 만약 저장된 데이터조차 없다면 즉시 테스트용 기본 릴레이 카드 1개를 강제 생성하여 버튼 먹통 방지!
-                if (!savedLocalList || savedLocalList.length === 0) {
-                    savedLocalList = [{
-                        id: 'card_default_01',
-                        title: '심해의 첫 번째 이야기',
-                        nation: 'KR',
-                        format: '소설 / 단편',
-                        progress: '0/5 참여중',
-                        phase: 'write',
-                        currentCh: 2,
-                        createdAt: Date.now(),
-                        content: '동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세. 이 심해의 무한한 비밀을 파헤치기 위한 첫 번째 여정이 시작됩니다.',
-                        creatorName: 'wnalsdud88',
-                        isBlind: false,
-                        chapters: [
-                            { ch: 1, title: '시작의 서막', author: 'wnalsdud88', content: '동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세. 이 심해의 무한한 비밀을 파헤치기 위한 첫 번째 여정이 시작됩니다.' }
-                        ]
-                    }];
-                }
-                relayMockList = savedLocalList;
-            }
-            
-            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-            renderRelayListContent();
-            updateRelayHubBadges();
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch(`${BACKEND_URL}/api/relay/list`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const result = await response.json();
+
+        if (result.success && Array.isArray(result.data)) {
+            const existingList = JSON.parse(localStorage.getItem('saved_relay_list')) || [];
+            relayMockList = result.data.map(item => {
+                const id = item.relayId || item._id;
+                const found = existingList.find(e => e.id === id);
+                return {
+                    id,
+                    title: item.title,
+                    subtitle: item.subtitle || '',
+                    nation: item.nation || 'KR',
+                    format: item.format || '소설',
+                    progress: item.progress || '0/5 참여중',
+                    phase: item.phase || 'write',
+                    currentCh: 1,
+                    createdAt: item.createdAt ? new Date(item.createdAt).getTime() : (found ? found.createdAt : Date.now()),
+                    content: item.content || '',
+                    creatorName: item.creatorName || currentUserId || 'Pioneer',
+                    isBlind: Boolean(item.isBlind),
+                    reportCount: item.reportCount || 0,
+                    chapters: (Array.isArray(item.chapters) && item.chapters.length > 0)
+                        ? item.chapters
+                        : (found && found.chapters && found.chapters.length > 0
+                            ? found.chapters
+                            : [{ ch: 1, title: item.subtitle || item.title, author: item.creatorName || currentUserId, content: item.content || '' }])
+                };
+            });
         }
+    } catch (error) {
+        let savedLocalList = JSON.parse(localStorage.getItem('saved_relay_list'));
+        if (!savedLocalList || savedLocalList.length === 0) {
+            savedLocalList = [{
+                id: 'card_default_01',
+                title: '심해의 첫 번째 이야기',
+                nation: 'KR',
+                format: '소설 / 단편',
+                progress: '0/5 참여중',
+                phase: 'write',
+                currentCh: 2,
+                createdAt: Date.now(),
+                content: '동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세. 이 심해의 무한한 비밀을 파헤치기 위한 첫 번째 여정이 시작됩니다.',
+                creatorName: 'wnalsdud88',
+                isBlind: false,
+                chapters: [
+                    { ch: 1, title: '시작의 서막', author: 'wnalsdud88', content: '동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세. 이 심해의 무한한 비밀을 파헤치기 위한 첫 번째 여정이 시작됩니다.' }
+                ]
+            }];
+        }
+        relayMockList = savedLocalList;
+    }
+
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+    renderRelayListContent();
+    updateRelayHubBadges();
+}
         async function fetchCreatorList() {
             try {
                 const controller = new AbortController();
@@ -1825,91 +1828,104 @@ function getNationCode(selectElementId) {
         }
 
         async function createNewRelayCard() {
-            const titleInput = document.getElementById('inputTitle');
-            const subtitleInput = document.getElementById('inputSubtitle');
-            const contentInput = document.getElementById('storyContent');
-            const formatSelect = document.getElementById('selectFormat');
-            const lengthSelect = document.getElementById('selectLength');
-            
-            const title = titleInput ? titleInput.value.trim() : "무제 스토리";
-            const subtitle = subtitleInput ? subtitleInput.value.trim() : "제 1화";
-            const content = contentInput ? contentInput.value.trim() : "";
-            const format = formatSelect ? formatSelect.value : "소설";
-            const lengthType = lengthSelect ? lengthSelect.value : "단편";
-            const nationCode = getNationCode('userLangSelect');
+    const titleInput = document.getElementById('inputTitle');
+    const subtitleInput = document.getElementById('inputSubtitle');
+    const contentInput = document.getElementById('storyContent');
+    const formatSelect = document.getElementById('selectFormat');
+    const genreSelect = document.getElementById('selectGenre');
+    const lengthSelect = document.getElementById('selectLength');
 
-            if (!title || !content) {
-                alert("제목과 본문을 모두 입력해주세요.");
-                return;
-            }
+    const title = titleInput ? titleInput.value.trim() : "무제 스토리";
+    const subtitle = subtitleInput ? subtitleInput.value.trim() : "제 1화";
+    const content = contentInput ? contentInput.value.trim() : "";
+    const format = formatSelect ? formatSelect.value : "소설";
+    const genre = genreSelect ? genreSelect.value : "공상 과학";
+    const lengthType = lengthSelect ? lengthSelect.value : "단편";
+    const nationCode = getNationCode('userLangSelect');
 
-            const newRelayId = 'card_' + Date.now();
-            const newRelayObj = {
-                id: newRelayId,
-                title: title,
+    if (!title || !content) {
+        alert("제목과 본문을 모두 입력해주세요.");
+        return;
+    }
+
+    let newRelayId = 'card_' + Date.now();
+    let createdAtTs = Date.now();
+
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/relay/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title,
+                subtitle,
+                content,
                 nation: nationCode,
-                format: `${format} / ${lengthType}`,
-                progress: '0/5 참여중',
-                phase: 'write',
-                currentCh: 1,
-                createdAt: Date.now(), // 💡 정확한 마감 타이머 계산용 타임스탬프
-                content: content,
-                creatorName: currentUserId || 'Pioneer',
-                isBlind: false,
-                chapters: [
-                    { ch: 1, title: subtitle, author: currentUserId || 'Pioneer', content: content }
-                ]
-            };
-
-            // 1. 서버 통신 시도 (실패해도 로컬 배열에 즉시 푸시하여 앱이 멈추지 않도록 방어)
-            try {
-                await fetch('http://localhost:5000/api/relay/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, content, nation: nationCode, format, author: currentUserId })
-                });
-            } catch (error) {
-                console.warn("⚠️ 백엔드 서버 통신 생략 (로컬 모드로 즉시 반영됩니다)");
-            }
-
-            // 2. 모의 목록 배열에 새 릴레이 최상단 추가
-            relayMockList.unshift(newRelayObj);
-            
-            // 💡 [추가] 새로 만든 릴레이와 createdAt 타임스탬프를 로컬스토리지에 영구 저장
-            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-            
-            // 3. 크리에이터 스튜디오 참여 이력에도 자동 추가
-            if (typeof creatorStudioHistory !== 'undefined') {
-                creatorStudioHistory.unshift({ 
-                    id: newRelayId, 
-                    title: title, 
-                    type: 'relay', 
-                    status: '집필참여', 
-                    share: '지분산정중' 
-                });
-                if (typeof renderStudioHistoryList === 'function') renderStudioHistoryList();
-            }
-
-            // 4. 입력창 초기화 및 임시저장 삭제
-            if (titleInput) titleInput.value = '';
-            if (subtitleInput) subtitleInput.value = '';
-            if (contentInput) contentInput.value = '';
-            localStorage.removeItem(`relay_draft_${newRelayId}`);
-
-            // 5. 알림을 먼저 띄워서 유저가 성공했음을 인지하게 함!
-            alert(`🎉 '${title}' 스토리 릴레이가 성공적으로 개설되었습니다!`);
-
-            // 6. 확인을 누르면 모달을 닫고, 배지 갱신 및 리스트 뷰로 부드럽게 전환
-            closeModal('createModal');
-            updateRelayHubBadges();
-            
-            if (typeof showRelayListView === 'function') {
-                showRelayListView('write');
-            }
-            if (typeof renderRelayListContent === 'function') {
-                renderRelayListContent();
+                format,
+                genre,
+                length: lengthType,
+                creatorName: currentUserId || 'Pioneer'
+            })
+        });
+        const result = await response.json();
+        if (response.ok && result.success && result.data) {
+            newRelayId = result.data.relayId || result.data._id || newRelayId;
+            if (result.data.createdAt) {
+                createdAtTs = new Date(result.data.createdAt).getTime();
             }
         }
+    } catch (error) {
+        console.warn("⚠️ 백엔드 서버 통신 실패 (로컬 모드로 즉시 반영됩니다)", error);
+    }
+
+    const newRelayObj = {
+        id: newRelayId,
+        title,
+        subtitle,
+        nation: nationCode,
+        format: `${format} / ${lengthType}`,
+        progress: '0/5 참여중',
+        phase: 'write',
+        currentCh: 1,
+        createdAt: createdAtTs,
+        content,
+        creatorName: currentUserId || 'Pioneer',
+        isBlind: false,
+        chapters: [
+            { ch: 1, title: subtitle, author: currentUserId || 'Pioneer', content }
+        ]
+    };
+
+    relayMockList.unshift(newRelayObj);
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+
+    if (typeof creatorStudioHistory !== 'undefined') {
+        creatorStudioHistory.unshift({
+            id: newRelayId,
+            title,
+            type: 'relay',
+            status: '집필참여',
+            share: '지분산정중'
+        });
+        if (typeof renderStudioHistoryList === 'function') renderStudioHistoryList();
+    }
+
+    if (titleInput) titleInput.value = '';
+    if (subtitleInput) subtitleInput.value = '';
+    if (contentInput) contentInput.value = '';
+    localStorage.removeItem(`relay_draft_${newRelayId}`);
+
+    alert(`🎉 '${title}' 스토리 릴레이가 성공적으로 개설되었습니다!`);
+
+    closeModal('createModal');
+    updateRelayHubBadges();
+
+    if (typeof showRelayListView === 'function') {
+        showRelayListView('write');
+    }
+    if (typeof renderRelayListContent === 'function') {
+        renderRelayListContent();
+    }
+}
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
