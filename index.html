@@ -3646,6 +3646,8 @@ async function submitWriterContentWithPiPayment() {
 
 // ✍️ 2. 결제 완료 후 실행되는 실제 원고 등록 함수 (원본 로직 100% 보존)
 async function executeActualWriterSubmission(relayId, subtitle, content) {
+    console.log("▶ [1] executeActualWriterSubmission 진입:", { relayId, subtitle, contentLen: content?.length });
+    alert("디버그 [1]: 제출 함수 진입함! relayId = " + relayId);
     const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite').checked : false;
     const targetRelay = relayMockList.find(r => r.id === relayId);
 
@@ -3680,6 +3682,7 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
     // 1. 서버 MongoDB Atlas에 이어쓰기 후보작 저장
     let savedToServer = false;
     try {
+        console.log("▶ [2] /api/relay/contribute 호출 직전:", BACKEND_URL, { relayId, targetWritingCh, currentUserId });
         const res = await fetch(`${BACKEND_URL}/api/relay/contribute`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
