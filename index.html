@@ -1252,10 +1252,13 @@ div[id$="-card-container"] p {
             </div>
             <div class="form-group">
                 <label class="form-label">Length (분량 구분)</label>
-                <select class="form-control" id="selectLength">
+                <select class="form-control" id="selectLength" onchange="updateLengthGuideText()">
                     <option value="단편 (5-10 Chs)">단편 (5~10 Chapters)</option>
                     <option value="장편 (10+ Chs)">장편 (10+ Chapters)</option>
                 </select>
+                <div id="createLengthGuideNotice" style="font-size: 0.76rem; color: var(--primary-cyan); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 7px 10px; margin-top: 6px; line-height: 1.45;">
+        ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다. (10화 도달 시 자동 종결)
+                </div>
             </div>
             <div class="form-group" style="margin-top: 10px;">
                 <label class="form-label">Chapter 1 Content (첫 화 작성 본문)</label>
@@ -1304,10 +1307,13 @@ div[id$="-card-container"] p {
             </div>
             <div class="form-group">
                 <label class="form-label">Length (연재 목표 분량)</label>
-                <select class="form-control" id="selectCreatorLength">
+                <select class="form-control" id="selectCreatorLength" onchange="updateCreatorLengthGuideText()">
                     <option value="단편 (5-10 Chs)">단편 (5~10 Chapters)</option>
                     <option value="장편 (10+ Chs)" selected>장편 (10+ Chapters)</option>
                 </select>
+                <div id="creatorCreateLengthGuideNotice" style="font-size: 0.76rem; color: var(--primary-cyan); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 7px 10px; margin-top: 6px; line-height: 1.45;">
+                    ⓘ 장편글은 11화부터 완결 가능하며, 완결 상한 회차는 없습니다.
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label">Chapter 1 Content (1화 본문 - 1화 무료 공개)</label>
@@ -1322,49 +1328,59 @@ div[id$="-card-container"] p {
     </div>
 
     <!-- 모달: 이어쓰기 작업실 -->
-    <div class="modal-overlay" id="writerModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="title-with-flag" style="margin: 0;">
-                    <span class="flag-badge" id="writerFlag">🇰🇷</span>
-                    <div class="modal-title" id="writerTitle">이어쓰기 작업실</div>
-                </div>
-                <button class="close-btn" onclick="closeModal('writerModal')">✕</button>
+<div class="modal-overlay" id="writerModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="title-with-flag" style="margin: 0;">
+                <span class="flag-badge" id="writerFlag">🇰🇷</span>
+                <div class="modal-title" id="writerTitle">이어쓰기 작업실</div>
             </div>
-            <input type="hidden" id="activeRelayId" value="">
-            <button class="translate-btn" onclick="translateCurrentReaderContent()">
-                🌐 Translate to My Language (<span id="targetLangText2">English</span>)
-            </button>
-            <div class="reader-body theme-dark notranslate" id="writerBody"></div>
-            <div class="form-group" style="margin-top: 12px;">
-                <label class="form-label">Chapter Subtitle (이번 회차 소제목)</label>
-                <input type="text" class="form-control" id="writerSubtitleInput" placeholder="회차 소제목을 입력하세요...">
+            <button class="close-btn" onclick="closeModal('writerModal')">✕</button>
+        </div>
+        <input type="hidden" id="activeRelayId" value="">
+        <button class="translate-btn" onclick="translateCurrentReaderContent()">
+            🌐 Translate to My Language (<span id="targetLangText2">English</span>)
+        </button>
+        <div class="reader-body theme-dark notranslate" id="writerBody"></div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label class="form-label">Chapter Subtitle (이번 회차 소제목)</label>
+            <input type="text" class="form-control" id="writerSubtitleInput" placeholder="회차 소제목을 입력하세요...">
+        </div>
+
+        <div class="form-group" style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label class="form-label" id="writerInputLabel" style="margin-bottom: 0;">내 이어쓰기 작성</label>
+                <span id="writerModalTimer" style="font-size: 0.78rem; color: var(--warning-orange); font-weight: 700;">⏳ 마감: 계산 중...</span>
             </div>
-            
-            <div class="form-group" id="writerFinalCheckboxWrapper" style="display: none; align-items: center; gap: 8px; background: rgba(56,189,248,0.08); padding: 10px; border-radius: 10px;">
+            <textarea class="form-control" id="writerInputContent" oninput="handleByteCheckRelay(this, 'writer-byte-count', 'btn-submit-write')" placeholder="이어질 이야기를 작성하세요..."></textarea>
+            <div class="byte-counter-info">
+                <span class="guide-text">1,500~6,000 바이트 사이로 작성해주세요.</span>
+                <span class="byte-status" id="writer-byte-count">0 / 6000 Bytes</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-sub); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 10px; margin-top: 8px; line-height: 1.5;">
+                ℹ️ <b>참여 안내:</b> 투표 동점 시 <b>먼저 등록된 후보작</b>이 우선 채택되며, 누적 <b>신고 20회</b> 도달 시 자동으로 가리기(블라인드) 처리됩니다.
+            </div>
+        </div>
+
+        <div class="form-group" id="writerFinalCheckboxWrapper" style="display: none; flex-direction: column; gap: 6px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25); padding: 10px 12px; border-radius: 10px; margin-top: 10px;">
+            <div id="writerFinalCheckboxRow" style="display: flex; align-items: center; gap: 8px;">
                 <input type="checkbox" id="checkFinalChapterWrite" style="width: 18px; height: 18px; cursor: pointer;">
                 <label for="checkFinalChapterWrite" style="font-size: 0.82rem; color: var(--warning-orange); font-weight: 700; cursor: pointer;">🏁 이 챕터를 마지막 회차(완결)로 제안하기</label>
             </div>
-
-            <div class="form-group" style="margin-top: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <label class="form-label" id="writerInputLabel" style="margin-bottom: 0;">내 이어쓰기 작성</label>
-                    <span id="writerModalTimer" style="font-size: 0.78rem; color: var(--warning-orange); font-weight: 700;">⏳ 마감: 계산 중...</span>
-                </div>
-                <textarea class="form-control" id="writerInputContent" oninput="handleByteCheckRelay(this, 'writer-byte-count', 'btn-submit-write')" placeholder="이어질 이야기를 작성하세요..."></textarea>
-                <div class="byte-counter-info">
-                    <span class="guide-text">1,500~6,000 바이트 사이로 작성해주세요.</span>
-                    <span class="byte-status" id="writer-byte-count">0 / 6000 Bytes</span>
-                </div>
+            <div id="writerFinalMandatoryRow" style="display: none; font-size: 0.84rem; color: var(--warning-orange); font-weight: 800;">
+                🏁 이 회차는 마지막 종결 회차입니다.
             </div>
-            
-            <div class="button-group" style="margin-top: 14px;">
-                <button class="btn btn-outline" style="flex:1;" onclick="saveRelayDraft()">💾 임시저장</button>
-                <button class="btn btn-primary" id="btn-submit-write" style="flex:1;" disabled onclick="submitWriterContentWithPiPayment()">🚀 이어쓰기 제출하기</button>
+            <div id="writerFinalRuleSubtext" style="font-size: 0.74rem; color: var(--text-sub); line-height: 1.45;">
+                ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다.
             </div>
         </div>
-    </div>
 
+        <div class="button-group" style="margin-top: 14px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="saveRelayDraft()">💾 임시저장</button>
+            <button class="btn btn-primary" id="btn-submit-write" style="flex:1;" disabled onclick="submitWriterContentWithPiPayment()">🚀 이어쓰기 제출하기</button>
+        </div>
+    </div>
+</div>
     <!-- 스토리 릴레이 상세 모달 -->
     <div class="modal-overlay" id="integratedRelayModal">
         <div class="modal-content">
@@ -1422,34 +1438,45 @@ div[id$="-card-container"] p {
     </div>
 
     <!-- 모달: 오리지널 다음 회차 작성 -->
-    <div class="modal-overlay" id="creatorContinueModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title" id="creatorContinueModalTitle">✍️ 오리지널 다음 회차 작성</div>
-                <button class="close-btn" onclick="closeModal('creatorContinueModal')">✕</button>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Chapter Subtitle (회차 소제목)</label>
-                <input type="text" class="form-control" id="inputCreatorContinueSubtitle" placeholder="회차 소제목을 입력하세요...">
-            </div>
-            
-            <!-- 💡 완결 체크박스 영역 (조건에 따라 display가 제어됨) -->
-            <div class="form-group" id="creatorFinalCheckboxWrapper" style="display: none; align-items: center; gap: 8px; background: rgba(56,189,248,0.08); padding: 10px; border-radius: 10px; margin-top: 10px;">
+<div class="modal-overlay" id="creatorContinueModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title" id="creatorContinueModalTitle">✍️ 오리지널 다음 회차 작성</div>
+            <button class="close-btn" onclick="closeModal('creatorContinueModal')">✕</button>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Chapter Subtitle (회차 소제목)</label>
+            <input type="text" class="form-control" id="inputCreatorContinueSubtitle" placeholder="회차 소제목을 입력하세요...">
+        </div>
+
+        <!-- 💡 완결 체크박스 및 분량 안내 영역 (조건에 따라 display가 제어됨) -->
+        <div class="form-group" id="creatorFinalCheckboxWrapper" style="display: none; flex-direction: column; gap: 6px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25); padding: 10px 12px; border-radius: 10px; margin-top: 10px;">
+            <div id="creatorFinalCheckboxRow" style="display: flex; align-items: center; gap: 8px;">
                 <input type="checkbox" id="checkFinalChapterCreator" style="width: 18px; height: 18px; cursor: pointer;">
                 <label for="checkFinalChapterCreator" style="font-size: 0.82rem; color: var(--warning-orange); font-weight: 700; cursor: pointer;">🏁 이 회차를 마지막 회차(완결)로 등록하기</label>
             </div>
-
-            <div class="form-group">
-                <label class="form-label">Content (회차 본문 - 글자 수 제한 무제한)</label>
-                <textarea class="form-control" id="inputCreatorContinueContent" style="min-height: 180px;" placeholder="자유롭게 이야기를 이어서 작성하세요..." oninput="handleByteCheckFree(this, 'creator-continue-byte', 'btn-submit-creator-continue')"></textarea>
-                <div class="byte-counter-info">
-                    <span class="guide-text">작성 중인 분량 (무제한):</span>
-                    <span class="byte-status valid" id="creator-continue-byte">0 Bytes</span>
-                </div>
+            <div id="creatorFinalMandatoryRow" style="display: none; font-size: 0.84rem; color: var(--warning-orange); font-weight: 800;">
+                🏁 이 회차는 마지막 종결 회차입니다.
             </div>
-            <button class="btn btn-primary" id="btn-submit-creator-continue" disabled onclick="submitCreatorContinueChapter()">🚀 다음 회차 연재 등록하기 (무료연재)</button>
+            <div id="creatorFinalRuleSubtext" style="font-size: 0.74rem; color: var(--text-sub); line-height: 1.45;">
+                ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다.
+            </div>
         </div>
+
+        <div class="form-group">
+            <label class="form-label">Content (회차 본문 - 글자 수 제한 무제한)</label>
+            <textarea class="form-control" id="inputCreatorContinueContent" style="min-height: 180px;" placeholder="자유롭게 이야기를 이어서 작성하세요..." oninput="handleByteCheckFree(this, 'creator-continue-byte', 'btn-submit-creator-continue')"></textarea>
+            <div class="byte-counter-info">
+                <span class="guide-text">작성 중인 분량 (무제한):</span>
+                <span class="byte-status valid" id="creator-continue-byte">0 Bytes</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-sub); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 10px; margin-top: 8px; line-height: 1.5;">
+                ℹ️ <b>연재 안내:</b> 누적 <b>신고 20회</b> 도달 시 자동으로 가리기(블라인드) 처리됩니다.
+            </div>
+        </div>
+        <button class="btn btn-primary" id="btn-submit-creator-continue" disabled onclick="submitCreatorContinueChapter()">🚀 다음 회차 연재 등록하기 (무료연재)</button>
     </div>
+</div>
 
     <div class="modal-overlay" id="creatorSingleReaderModal">
         <div class="modal-content">
@@ -1636,6 +1663,143 @@ function getNationCode(selectElementId) {
                 renderVoteCandidateList(targetRelay);
             }
         }
+
+        function updateLengthGuideText() {
+    const lengthSelect = document.getElementById('selectLength');
+    const guideBox = document.getElementById('createLengthGuideNotice');
+    if (!lengthSelect || !guideBox) return;
+
+    const isLong = lengthSelect.value.includes('장편') || lengthSelect.value.includes('10+');
+    guideBox.innerText = isLong
+        ? 'ⓘ 장편글은 11화부터 완결 가능하며, 완결 상한 회차는 없습니다.'
+        : 'ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다. (10화 도달 시 자동 종결)';
+}
+
+function getRelayCurrentTargetChapter(item) {
+    if (!item || !Array.isArray(item.chapters) || item.chapters.length === 0) return 2;
+    const maxCh = Math.max(...item.chapters.map(c => c.ch));
+    if (item.currentCh && item.currentCh > maxCh) {
+        return item.currentCh;
+    }
+    return (item.chapters.length === 1 && maxCh === 1) ? 2 : maxCh;
+}
+
+function getRelayLatestConfirmedChapter(item) {
+    if (!item || !Array.isArray(item.chapters) || item.chapters.length === 0) {
+        return {
+            ch: 1,
+            title: item?.subtitle || item?.title || '제 1화',
+            author: item?.creatorName || currentUserId,
+            content: item?.content || ''
+        };
+    }
+    const targetCh = getRelayCurrentTargetChapter(item);
+    const confirmed = item.chapters.filter(c => c.ch < targetCh);
+    if (confirmed.length > 0) {
+        return confirmed[confirmed.length - 1];
+    }
+    return item.chapters[0];
+}
+
+function processRelayLifecycle(item, now = Date.now()) {
+    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    let changed = false;
+
+    if (!item || item.isBlind || item.phase === 'completed') return false;
+
+    if (!item.createdAt) {
+        item.createdAt = now;
+        changed = true;
+    }
+
+    if (!Array.isArray(item.chapters) || item.chapters.length === 0) {
+        item.chapters = [{
+            ch: 1,
+            title: item.subtitle || item.title,
+            author: item.creatorName || currentUserId,
+            content: item.content || '',
+            isWinner: true
+        }];
+        changed = true;
+    }
+
+    const currentTargetCh = getRelayCurrentTargetChapter(item);
+    const currentCandidates = item.chapters.filter(c => c.ch === currentTargetCh && c.ch > 1);
+
+    // 1. 집필 단계(write) 5일 마감 판정
+    if (item.phase === 'write') {
+        const writeStart = item.writeStartedAt || item.createdAt;
+        if (now - writeStart >= FIVE_DAYS_MS) {
+            if (currentCandidates.length === 0) {
+                item.isBlind = true;
+                item.progress = '0/5 마감(가리기)';
+            } else {
+                item.phase = 'vote';
+                item.voteStartedAt = writeStart + FIVE_DAYS_MS;
+            }
+            changed = true;
+        }
+    }
+
+    // 2. 투표 단계(vote) 3일 마감 판정
+    if (item.phase === 'vote') {
+        if (!item.voteStartedAt) {
+            item.voteStartedAt = now;
+            changed = true;
+        }
+
+        if (now - item.voteStartedAt >= THREE_DAYS_MS) {
+            const totalVotes = currentCandidates.reduce((sum, c) => sum + (c.votes || 0), 0);
+
+            if (currentCandidates.length === 0 || totalVotes === 0) {
+                // 후보 0표 -> 기존 후보 정리 후 같은 회차 집필 재시작
+                item.chapters = item.chapters.filter(c => !(c.ch === currentTargetCh && c.ch > 1));
+                item.phase = 'write';
+                item.currentCh = currentTargetCh;
+                item.writeStartedAt = now;
+                item.voteStartedAt = null;
+                item.progress = '0/5 참여중';
+                changed = true;
+            } else {
+                // 최다 득표 후보 채택 (동점 시 배열 앞쪽 = 선등록 후보 우선)
+                let winner = currentCandidates[0];
+                for (let i = 1; i < currentCandidates.length; i++) {
+                    if ((currentCandidates[i].votes || 0) > (winner.votes || 0)) {
+                        winner = currentCandidates[i];
+                    }
+                }
+
+                item.chapters = item.chapters.filter(c => c.ch !== currentTargetCh || c === winner);
+                winner.isWinner = true;
+
+                // 단편(6~10화 완결) vs 장편(11화 이상 완결 가능, 상한 없음)
+                const formatStr = item.format || '';
+                const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
+                const isFinalProposed = Boolean(winner.isFinalProposal);
+                const isShortLimitReached = (!isLongFormat && currentTargetCh >= 10);
+
+                if (isFinalProposed || isShortLimitReached) {
+                    item.phase = 'completed';
+                    item.completedAt = now;
+                    item.winnerCh = currentTargetCh;
+                    item.winnerAuthor = winner.author;
+                } else {
+                    const nextCh = currentTargetCh + 1;
+                    item.phase = 'write';
+                    item.currentCh = nextCh;
+                    item.writeStartedAt = now;
+                    item.voteStartedAt = null;
+                    item.progress = '0/5 참여중';
+                }
+                changed = true;
+            }
+        }
+    }
+
+    return changed;
+}
+        
         function renderAlarmList() {
             const container = document.getElementById('alarmListContainer');
             if (!container) return;
@@ -2270,7 +2434,112 @@ function getNationCode(selectElementId) {
             if (section === 'creator') renderCreatorListViewContent();
         }
 
-        function renderRelayListContent() {
+        function settleRelayInList(item, now) {
+    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    let changed = false;
+
+    if (!item || item.isBlind || item.phase === 'completed') return false;
+
+    if (!item.createdAt) {
+        item.createdAt = now;
+        changed = true;
+    }
+
+    if (!Array.isArray(item.chapters) || item.chapters.length === 0) {
+        item.chapters = [{
+            ch: 1,
+            title: item.subtitle || item.title,
+            author: item.creatorName || currentUserId,
+            content: item.content || '',
+            isWinner: true
+        }];
+        changed = true;
+    }
+
+    const maxCh = Math.max(...item.chapters.map(c => c.ch));
+    const targetCh = (item.currentCh && item.currentCh > maxCh)
+        ? item.currentCh
+        : ((item.chapters.length === 1 && maxCh === 1) ? 2 : maxCh);
+
+    const candidates = item.chapters.filter(c => c.ch === targetCh && c.ch > 1);
+
+    // 1. 집필 단계(write) 5일 마감 판정
+    if (item.phase === 'write') {
+        const writeStart = item.writeStartedAt || item.createdAt;
+        if (now - writeStart >= FIVE_DAYS_MS) {
+            if (candidates.length === 0) {
+                // 참여자 0명 -> 가리기 처리
+                item.isBlind = true;
+                item.progress = '0/5 마감(가리기)';
+            } else {
+                // 참여자 있음 -> 3일 투표 단계 전환
+                item.phase = 'vote';
+                item.voteStartedAt = writeStart + FIVE_DAYS_MS;
+            }
+            changed = true;
+        }
+    }
+
+    // 2. 투표 단계(vote) 3일 마감 판정
+    if (item.phase === 'vote') {
+        if (!item.voteStartedAt) {
+            item.voteStartedAt = now;
+            changed = true;
+        }
+
+        if (now - item.voteStartedAt >= THREE_DAYS_MS) {
+            const totalVotes = candidates.reduce((sum, c) => sum + (c.votes || 0), 0);
+
+            if (candidates.length === 0 || totalVotes === 0) {
+                // 후보 0표 -> 후보 비우고 해당 회차 집필 재시작
+                item.chapters = item.chapters.filter(c => !(c.ch === targetCh && c.ch > 1));
+                item.phase = 'write';
+                item.currentCh = targetCh;
+                item.writeStartedAt = now;
+                item.voteStartedAt = null;
+                item.progress = '0/5 참여중';
+                changed = true;
+            } else {
+                // 최다 득표 후보 선정 (동점 시 먼저 등록된 후보 우선)
+                let winner = candidates[0];
+                for (let i = 1; i < candidates.length; i++) {
+                    if ((candidates[i].votes || 0) > (winner.votes || 0)) {
+                        winner = candidates[i];
+                    }
+                }
+
+                item.chapters = item.chapters.filter(c => c.ch !== targetCh || c === winner);
+                winner.isWinner = true;
+
+                // 단편(6~10화 완결) / 장편(11화 이상 완결 가능, 상한 없음)
+                const formatStr = item.format || '';
+                const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
+                const isFinalProposed = Boolean(winner.isFinalProposal);
+                const isShortLimitReached = (!isLongFormat && targetCh >= 10);
+
+                if (isFinalProposed || isShortLimitReached) {
+                    item.phase = 'completed';
+                    item.completedAt = now;
+                    item.winnerCh = targetCh;
+                    item.winnerAuthor = winner.author;
+                } else {
+                    const nextCh = targetCh + 1;
+                    item.phase = 'write';
+                    item.currentCh = nextCh;
+                    item.writeStartedAt = now;
+                    item.voteStartedAt = null;
+                    item.progress = '0/5 참여중';
+                }
+                changed = true;
+            }
+        }
+    }
+
+    return changed;
+}
+
+function renderRelayListContent() {
     const container = document.getElementById('relay-card-container');
     if (!container) return;
 
@@ -2279,29 +2548,17 @@ function getNationCode(selectElementId) {
         : 'ALL';
 
     const now = Date.now();
-    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
     let listChanged = false;
 
     relayMockList.forEach(item => {
-        if (!item.createdAt) {
-            item.createdAt = now;
-            listChanged = true;
-        }
-        if (item.phase === 'write' && (now - item.createdAt >= FIVE_DAYS_MS)) {
-            item.phase = 'vote';
-            if (!item.voteStartedAt) {
-                item.voteStartedAt = item.createdAt + FIVE_DAYS_MS;
-            }
-            listChanged = true;
-        }
-        if (item.phase === 'vote' && !item.voteStartedAt) {
-            item.voteStartedAt = now;
+        if (settleRelayInList(item, now)) {
             listChanged = true;
         }
     });
 
     if (listChanged) {
         localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+        if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
     }
 
     const filteredRelayList = relayMockList.filter(item => {
@@ -2327,7 +2584,7 @@ function getNationCode(selectElementId) {
         const actionText = isVote ? '🗳️ 투표하기' : `✍️ 이어쓰기 (1.0 ${CURRENCY_UNIT})`;
         const timerBaseTime = isVote
             ? (item.voteStartedAt || item.createdAt || now)
-            : (item.createdAt || now);
+            : (item.writeStartedAt || item.createdAt || now);
         const timerInfo = calculateRemainingTime(timerBaseTime, isVote);
 
         const chapters = item.chapters || [{
@@ -2338,8 +2595,10 @@ function getNationCode(selectElementId) {
         }];
 
         let maxCh = Math.max(...chapters.map(c => c.ch));
-        let targetWritingCh = maxCh > 0 ? maxCh : 2;
-        if (chapters.length === 1 && chapters[0].ch === 1) {
+        let targetWritingCh = (item.currentCh && item.currentCh > maxCh)
+            ? item.currentCh
+            : (maxCh > 0 ? maxCh : 2);
+        if (chapters.length === 1 && chapters[0].ch === 1 && (!item.currentCh || item.currentCh <= 1)) {
             targetWritingCh = 2;
         }
 
@@ -2757,37 +3016,17 @@ if (statusEl && item) {
         return;
     }
 
+    if (processRelayLifecycle(targetRelay, Date.now())) {
+        localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+    }
+
     document.getElementById('activeRelayId').value = targetRelay.id;
     document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
     document.getElementById('integratedTitle').innerText = targetRelay.title;
 
-    if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
-        targetRelay.chapters = [{
-            ch: 1,
-            title: targetRelay.title,
-            author: targetRelay.creatorName || currentUserId,
-            content: targetRelay.content || ''
-        }];
-    }
-
-    const chapters = targetRelay.chapters;
-
-    let latestConfirmedCh = chapters[0];
-    let targetWritingCh = 2;
-
-    const maxCh = Math.max(...chapters.map(c => c.ch));
-    if (maxCh > 1) {
-        const confirmedList = chapters.filter(c => c.ch < maxCh);
-        if (confirmedList.length > 0) {
-            latestConfirmedCh = confirmedList[confirmedList.length - 1];
-        }
-        targetWritingCh = maxCh;
-    } else {
-        targetWritingCh = 2;
-        latestConfirmedCh = chapters[0];
-    }
-
-    const candidates = chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
+    const latestConfirmedCh = getRelayLatestConfirmedChapter(targetRelay);
+    const targetWritingCh = getRelayCurrentTargetChapter(targetRelay);
+    const candidates = (targetRelay.chapters || []).filter(c => c.ch === targetWritingCh && c.ch > 1);
     const isVoteMode = (targetRelay.phase === 'vote' || candidates.length >= 5);
 
     targetRelay.progress = `${candidates.length}/5 참여중`;
@@ -2972,72 +3211,183 @@ if (statusEl && item) {
         }
         // 2. 작업실 모달 오픈 함수 (작성할 챕터 번호 일치화)
         function openWriterModal(relayId) {
-            closeModal('integratedRelayModal');
-            const targetRelay = relayMockList.find(r => r.id === relayId);
-            if (!targetRelay) {
-                alert("릴레이 정보를 불러오지 못했습니다.");
-                return;
-            }
+    closeModal('integratedRelayModal');
+    const targetRelay = relayMockList.find(r => r.id === relayId);
+    if (!targetRelay) {
+        alert("릴레이 정보를 불러오지 못했습니다.");
+        return;
+    }
 
-            const chapters = targetRelay.chapters || [];
-            let latestConfirmedCh = chapters[0];
-            let targetWritingCh = 2;
+    const chapters = targetRelay.chapters || [];
+    let latestConfirmedCh = chapters[0] || {
+        ch: 1,
+        title: targetRelay.title,
+        author: targetRelay.creatorName || currentUserId,
+        content: targetRelay.content || ''
+    };
+    let targetWritingCh = 2;
 
-            const maxCh = Math.max(...chapters.map(c => c.ch));
-            const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh);
-            if (confirmedChapters.length > 0) {
-                latestConfirmedCh = confirmedChapters[confirmedChapters.length - 1];
-                targetWritingCh = latestConfirmedCh.ch + 1;
-            } else if (chapters.length > 1) {
-                targetWritingCh = chapters[chapters.length - 1].ch;
-            }
-
-            // 💡 [핵심 수정] 현재 챕터 번호에 대해서만 내 참여 여부 검사
-            const alreadySubmitted = chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId);
-            if (alreadySubmitted) {
-                alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
-                return;
-            }
-
-            document.getElementById('activeRelayId').value = targetRelay.id;
-            document.getElementById('writerFlag').innerText = targetRelay.nation || 'KR';
-            document.getElementById('writerTitle').innerText = `${targetRelay.title} - 제 ${targetWritingCh}화 이어쓰기`;
-            
-            document.getElementById('writerBody').innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || targetRelay.title}]\n\n${latestConfirmedCh.content}`;
-
-            const timerSpan = document.getElementById('writerModalTimer');
-            if (timerSpan) {
-                const timeLeft = calculateRemainingTime(targetRelay.createdAt || Date.now());
-                timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
-            }
-
-            const formatStr = targetRelay.format || '';
-            const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
-            const wrapper = document.getElementById('writerFinalCheckboxWrapper');
-            if (wrapper) {
-                if ((!isLongFormat && targetWritingCh >= 6 && targetWritingCh <= 10) || (isLongFormat && targetWritingCh >= 11)) {
-                    wrapper.style.display = 'flex';
-                } else {
-                    wrapper.style.display = 'none';
-                    const chkBox = document.getElementById('checkFinalChapterWrite');
-                    if (chkBox) chkBox.checked = false;
-                }
-            }
-
-            const writerSubtitleInput = document.getElementById('writerSubtitleInput');
-            const writerInputContent = document.getElementById('writerInputContent');
-            if (writerSubtitleInput) writerSubtitleInput.value = '';
-            if (writerInputContent) writerInputContent.value = '';
-
-            if (typeof checkAndLoadDraftForWriter === 'function') {
-                checkAndLoadDraftForWriter(targetRelay.id);
-            }
-
-            const textarea = document.getElementById('writerInputContent');
-            if (textarea) handleByteCheckRelay(textarea, 'writer-byte-count', 'btn-submit-write');
-
-            openModal('writerModal');
+    if (chapters.length > 0) {
+        const maxCh = Math.max(...chapters.map(c => c.ch));
+        const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh || c.isWinner);
+        if (confirmedChapters.length > 0) {
+            latestConfirmedCh = confirmedChapters[confirmedChapters.length - 1];
+            targetWritingCh = Math.max(latestConfirmedCh.ch + 1, (targetRelay.currentCh || 2));
+        } else if (chapters.length > 1) {
+            targetWritingCh = Math.max(maxCh, (targetRelay.currentCh || 2));
+        } else {
+            targetWritingCh = Math.max(2, (targetRelay.currentCh || 2));
         }
+    }
+
+    // 1. 현재 챕터 번호에 대한 중복 참여 검사
+    const alreadySubmitted = chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId);
+    if (alreadySubmitted) {
+        alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
+        return;
+    }
+
+    document.getElementById('activeRelayId').value = targetRelay.id;
+    document.getElementById('writerFlag').innerText = targetRelay.nation || 'KR';
+    document.getElementById('writerTitle').innerText = `${targetRelay.title} - 제 ${targetWritingCh}화 이어쓰기`;
+
+    const bodyEl = document.getElementById('writerBody');
+    if (bodyEl) {
+        bodyEl.innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || targetRelay.title}]\n\n${latestConfirmedCh.content}`;
+    }
+
+    // 2. 마감 타이머 갱신
+    const timerSpan = document.getElementById('writerModalTimer');
+    if (timerSpan) {
+        const isVote = targetRelay.phase === 'vote';
+        const timerBase = isVote
+            ? (targetRelay.voteStartedAt || targetRelay.createdAt || Date.now())
+            : (targetRelay.writeStartedAt || targetRelay.createdAt || Date.now());
+        const timeLeft = calculateRemainingTime(timerBase, isVote);
+        timerSpan.innerText = `⏳ 마감: ${timeLeft.text}`;
+    }
+
+    // 3. 단편/장편 회차별 완결 제안/종결 및 안내 문구 세팅
+    const formatStr = targetRelay.format || '';
+    const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
+    const wrapper = document.getElementById('writerFinalCheckboxWrapper');
+    const checkRow = document.getElementById('writerFinalCheckboxRow');
+    const mandatoryRow = document.getElementById('writerFinalMandatoryRow');
+    const subText = document.getElementById('writerFinalRuleSubtext');
+    const chkBox = document.getElementById('checkFinalChapterWrite');
+
+    if (wrapper) {
+        wrapper.style.display = 'flex';
+        if (!isLongFormat && targetWritingCh === 10) {
+            if (checkRow) checkRow.style.display = 'none';
+            if (mandatoryRow) mandatoryRow.style.display = 'block';
+            if (subText) subText.innerText = 'ⓘ 단편글은 최대 10화까지 연재되며, 이번 회차 채택 시 작품이 완결됩니다.';
+            if (chkBox) chkBox.checked = true;
+        } else if (!isLongFormat && targetWritingCh >= 6 && targetWritingCh <= 9) {
+            if (checkRow) checkRow.style.display = 'flex';
+            if (mandatoryRow) mandatoryRow.style.display = 'none';
+            if (subText) subText.innerText = 'ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다.';
+            if (chkBox) chkBox.checked = false;
+        } else if (isLongFormat && targetWritingCh >= 11) {
+            if (checkRow) checkRow.style.display = 'flex';
+            if (mandatoryRow) mandatoryRow.style.display = 'none';
+            if (subText) subText.innerText = 'ⓘ 장편글은 11화부터 완결 가능하며, 완결 상한 회차는 없습니다.';
+            if (chkBox) chkBox.checked = false;
+        } else {
+            if (checkRow) checkRow.style.display = 'none';
+            if (mandatoryRow) mandatoryRow.style.display = 'none';
+            if (subText) {
+                subText.innerText = isLongFormat
+                    ? 'ⓘ 장편글은 11화부터 완결 가능하며, 완결 상한 회차는 없습니다.'
+                    : 'ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다.';
+            }
+            if (chkBox) chkBox.checked = false;
+        }
+    }
+
+    // 4. 입력란 초기화, 임시저장 복원, 바이트 체크 초기화
+    const writerSubtitleInput = document.getElementById('writerSubtitleInput');
+    const writerInputContent = document.getElementById('writerInputContent');
+    if (writerSubtitleInput) writerSubtitleInput.value = '';
+    if (writerInputContent) writerInputContent.value = '';
+
+    if (typeof checkAndLoadDraftForWriter === 'function') {
+        checkAndLoadDraftForWriter(targetRelay.id);
+    }
+
+    const textarea = document.getElementById('writerInputContent');
+    if (textarea && typeof handleByteCheckRelay === 'function') {
+        handleByteCheckRelay(textarea, 'writer-byte-count', 'btn-submit-write');
+    }
+
+    openModal('writerModal');
+}
+
+        function executeActualWriterSubmission() {
+    const relayId = document.getElementById('activeRelayId').value;
+    const subTitleInput = document.getElementById('writerSubTitle');
+    const contentInput = document.getElementById('writerStoryContent');
+    const finalChk = document.getElementById('checkFinalChapterWrite');
+
+    const subTitle = subTitleInput ? subTitleInput.value.trim() : '';
+    const content = contentInput ? contentInput.value.trim() : '';
+
+    if (!subTitle || !content) {
+        alert('소제목과 본문 내용을 모두 입력해주세요.');
+        return;
+    }
+
+    const targetRelay = relayMockList.find(r => r.id === relayId);
+    if (!targetRelay) {
+        alert('대상 스토리를 찾을 수 없습니다.');
+        return;
+    }
+
+    const targetWritingCh = getRelayCurrentTargetChapter(targetRelay);
+    const formatStr = targetRelay.format || '';
+    const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
+    const isFinal = (!isLongFormat && targetWritingCh === 10)
+        ? true
+        : Boolean(finalChk && finalChk.checked);
+
+    if (!Array.isArray(targetRelay.chapters)) {
+        targetRelay.chapters = [];
+    }
+
+    targetRelay.chapters.push({
+        ch: targetWritingCh,
+        title: subTitle,
+        author: currentUserId || 'Pioneer',
+        content,
+        votes: 0,
+        isFinalProposal: isFinal,
+        submittedAt: Date.now()
+    });
+
+    const currentCandidates = targetRelay.chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
+    targetRelay.progress = `${currentCandidates.length}/5 참여중`;
+
+    // 5명 정원이 다 차면 즉시 3일 투표 단계로 전환
+    if (currentCandidates.length >= 5) {
+        targetRelay.phase = 'vote';
+        targetRelay.voteStartedAt = Date.now();
+    }
+
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+    localStorage.removeItem(`writer_draft_${relayId}`);
+
+    if (subTitleInput) subTitleInput.value = '';
+    if (contentInput) contentInput.value = '';
+    if (finalChk) finalChk.checked = false;
+
+    closeModal('writerModal');
+    if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
+    if (typeof renderRelayListContent === 'function') renderRelayListContent();
+
+    setTimeout(() => {
+        alert(`🎉 제 ${targetWritingCh}화 이어쓰기 후보작이 등록되었습니다!`);
+    }, 50);
+}
         
         function saveRelayDraft() {
             const relayId = document.getElementById('activeRelayId').value;
@@ -3080,6 +3430,57 @@ if (statusEl && item) {
             openModal('writerModal');
             alert("📝 임시저장된 원고를 불러왔습니다.");
         }
+
+        function updateCreatorLengthGuideText() {
+    const lengthSelect = document.getElementById('selectCreatorLength');
+    const guideBox = document.getElementById('creatorCreateLengthGuideNotice');
+    if (!lengthSelect || !guideBox) return;
+
+    const isLong = lengthSelect.value.includes('장편') || lengthSelect.value.includes('10+');
+    guideBox.innerText = isLong
+        ? 'ⓘ 장편글은 11화부터 완결 가능하며, 완결 상한 회차는 없습니다.'
+        : 'ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다. (10화 도달 시 자동 종결)';
+}
+
+function setupCreatorContinueFinalRules(seriesItem, nextCh) {
+    const formatStr = seriesItem?.format || seriesItem?.length || '';
+    const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
+
+    const wrapper = document.getElementById('creatorFinalCheckboxWrapper');
+    const checkRow = document.getElementById('creatorFinalCheckboxRow');
+    const mandatoryRow = document.getElementById('creatorFinalMandatoryRow');
+    const subText = document.getElementById('creatorFinalRuleSubtext');
+    const chkBox = document.getElementById('checkFinalChapterCreator');
+
+    if (!wrapper) return;
+    wrapper.style.display = 'flex';
+
+    if (!isLongFormat && nextCh === 10) {
+        if (checkRow) checkRow.style.display = 'none';
+        if (mandatoryRow) mandatoryRow.style.display = 'block';
+        if (subText) subText.innerText = 'ⓘ 단편글은 최대 10화까지 연재되며, 이번 회차 발행 시 작품이 완결됩니다.';
+        if (chkBox) chkBox.checked = true;
+    } else if (!isLongFormat && nextCh >= 6 && nextCh <= 9) {
+        if (checkRow) checkRow.style.display = 'flex';
+        if (mandatoryRow) mandatoryRow.style.display = 'none';
+        if (subText) subText.innerText = 'ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다.';
+        if (chkBox) chkBox.checked = false;
+    } else if (isLongFormat && nextCh >= 11) {
+        if (checkRow) checkRow.style.display = 'flex';
+        if (mandatoryRow) mandatoryRow.style.display = 'none';
+        if (subText) subText.innerText = 'ⓘ 장편글은 11화부터 완결 가능하며, 완결 상한 회차는 없습니다.';
+        if (chkBox) chkBox.checked = false;
+    } else {
+        if (checkRow) checkRow.style.display = 'none';
+        if (mandatoryRow) mandatoryRow.style.display = 'none';
+        if (subText) {
+            subText.innerText = isLongFormat
+                ? 'ⓘ 장편글은 11화부터 완결 가능하며, 완결 상한 회차는 없습니다.'
+                : 'ⓘ 단편글은 6~10화 사이에 완결시켜야 합니다.';
+        }
+        if (chkBox) chkBox.checked = false;
+    }
+}
         
     // 🚀 1. 이어쓰기 제출 시 Pi SDK 결제 창 호출 및 서버 승인/완료 통신
 async function submitWriterContentWithPiPayment() {
