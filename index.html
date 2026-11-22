@@ -3647,11 +3647,14 @@ async function submitWriterContentWithPiPayment() {
 // ✍️ 2. 결제 완료 후 실행되는 실제 원고 등록 함수 (원본 로직 100% 보존)
 async function executeActualWriterSubmission(relayId, subtitle, content) {
     console.log("▶ [1] executeActualWriterSubmission 진입:", { relayId, subtitle, contentLen: content?.length });
-    alert("디버그 [1]: 제출 함수 진입함! relayId = " + relayId);
+
     const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite').checked : false;
     const targetRelay = relayMockList.find(r => r.id === relayId);
 
-    if (!targetRelay) return;
+    if (!targetRelay) {
+        alert("⚠️ 대상 릴레이를 찾지 못했습니다: " + relayId);
+        return;
+    }
 
     if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
         targetRelay.chapters = [{
@@ -3679,7 +3682,6 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
     const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
     const finalFlag = (!isLongFormat && targetWritingCh === 10) ? true : Boolean(isFinal);
 
-    // 1. 서버 MongoDB Atlas에 이어쓰기 후보작 저장
     let savedToServer = false;
     try {
         const res = await fetch(`${BACKEND_URL}/api/relay/contribute`, {
@@ -3713,7 +3715,7 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
         console.error("❌ 이어쓰기 DB 저장 실패:", err);
         alert("⚠️ 디버그 [2] 에러: " + (err?.message || err));
     }
-    // 2. 로컬 상태 및 화면 즉시 반영
+
     if (!creatorStudioHistory.some(h => h.id === relayId && h.ch === targetWritingCh)) {
         creatorStudioHistory.unshift({
             id: relayId,
