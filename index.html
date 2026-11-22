@@ -1028,7 +1028,7 @@ div[id$="-card-container"] p {
             
             <div class="button-group" style="margin-top: 10px;">
                 <button class="btn btn-primary" id="btnVoteThisCandidate" style="flex:2;">🗳️ 이 글에 투표하기</button>
-                <button class="btn btn-outline" style="flex:1; border-color:var(--danger-red); color:var(--danger-red);" onclick="triggerReportAction('cand_active', '릴레이 후보작')">🚨 신고</button>
+                <button class="btn btn-outline" id="btnReportCandidate" style="flex:1; border-color:var(--danger-red); color:var(--danger-red);" onclick="triggerReportAction('cand_active', '릴레이 후보작')">🚨 신고</button>
             </div>
             <button class="btn btn-outline" id="btnBackFromCandidateReader" style="margin-top: 8px;" onclick="closeModal('candidateReaderModal'); openModal('readVoteModal');">목록으로 돌아가기</button>
         </div>
@@ -1491,7 +1491,7 @@ div[id$="-card-container"] p {
             
             <div class="button-group" style="margin-top: 14px;">
                 <button class="btn btn-outline" style="flex:2;" onclick="openCreatorReadModalFromReader()">목록으로</button>
-                <button class="btn btn-outline" style="flex:1; border-color:var(--danger-red); color:var(--danger-red);" onclick="triggerReportAction('creator_single', '오리지널 회차')">🚨 신고</button>
+                <button class="btn btn-outline" id="btnReportCreatorSingle" style="flex:1; border-color:var(--danger-red); color:var(--danger-red);" onclick="triggerReportAction('creator_single', '오리지널 회차')">🚨 신고</button>
             </div>
         </div>
     </div>
@@ -2897,19 +2897,120 @@ if (statusEl && item) {
         openModal('relayPrevChaptersModal');
     }
 }
-        function triggerReportAction(contentId, contentType) {
-            const reportKey = `reported_${contentId}_${currentUserId}`;
-            if (localStorage.getItem(reportKey)) {
-                alert("⚠️ 이미 신고를 접수한 콘텐츠입니다.");
-                return;
-            }
-            const reason = prompt("🚨 신고 사유를 입력해 주세요:\n1. 음란/불건전\n2. 비방/욕설\n3. 기타");
-            if (reason) {
-                localStorage.setItem(reportKey, "true");
-                alert("🚨 신고가 정상적으로 접수되었습니다.");
-            }
-        }
+        function applyBlindToLocalContent(contentId, parentId = null) {
+    let relayUpdated = false;
+    let creatorUpdated = false;
 
+    relayMockList.forEach(item => {
+        if (item.id === contentId || (parentId && item.id === parentId)) {
+            item.isBlind = true;
+            relayUpdated = true;
+        }
+        if (Array.isArray(item.chapters)) {
+            item.chapters.forEach(ch => {
+                if (ch.id === contentId || ch._id === contentId) {
+                    ch.isBlind = true;
+                    item.reportCount = (item.reportCount || 0) + 1;
+                    if (item.reportCount >= 20) {
+                        item.isBlind = true;
+                    }
+                    relayUpdated = true;
+                }
+            });
+        }
+    });
+
+    creatorMockList.forEach(item => {
+        if (item.id === contentId || (parentId && item.id === parentId)) {
+            item.isBlind = true;
+            creatorUpdated = true;
+        }
+    });
+
+    if (relayUpdated) {
+        localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+        if (typeof renderRelayListContent === 'function') renderRelayListContent();
+        if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
+    }
+
+    if (creatorUpdated) {
+        localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
+        if (typeof renderCreatorListViewContent === 'function') renderCreatorListViewContent();
+        if (typeof updateCreatorHubBadges === 'function') updateCreatorHubBadges();
+    }
+}
+
+async function triggerReportAction(contentId, contentType, parentId = null) {
+    const activeId = (contentId === 'cand_active' || contentId === 'creator_single' || !contentId)
+        ? (parentId || document.getElementById('activeRelayId')?.value || 'unknown')
+        : contentId;
+
+    const reportKey = `reported_${activeId}_${currentUserId}`;
+    if (localStorage.getItem(reportKey)) {
+        alert("⚠️ 이미 신고를 접수한 콘텐츠입니다.");
+        return;
+    }
+
+    const reason = prompt("🚨 신고 사유를 입력해 주세요:\n1. 음란/불건전\n2. 비방/욕설\n3. 기타");
+    if (!reason || !reason.trim()) return;
+
+    const targetLookupId = parentId || activeId;
+    let isNowBlind = false;
+    let currentCount = 1;
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/safety/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contentId: targetLookupId,
+                reporterId: currentUserId || 'wnalsdud88',
+                reason: reason.trim(),
+                contentType: contentType || ''
+            })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(`⚠️ ${data.message || '신고 처리 중 오류가 발생했습니다.'}`);
+            return;
+        }
+        currentCount = data.reportCount || 1;
+        isNowBlind = Boolean(data.isBlind) || currentCount >= 20;
+    } catch (err) {
+        console.warn("⚠️ 백엔드 신고 통신 실패, 로컬 상태로 처리합니다:", err);
+        relayMockList.forEach(item => {
+            if (item.id === targetLookupId) {
+                item.reportCount = (item.reportCount || 0) + 1;
+                currentCount = item.reportCount;
+                if (item.reportCount >= 20) {
+                    item.isBlind = true;
+                    isNowBlind = true;
+                }
+            }
+        });
+        creatorMockList.forEach(item => {
+            if (item.id === targetLookupId) {
+                item.reportCount = (item.reportCount || 0) + 1;
+                currentCount = item.reportCount;
+                if (item.reportCount >= 20) {
+                    item.isBlind = true;
+                    isNowBlind = true;
+                }
+            }
+        });
+    }
+
+    localStorage.setItem(reportKey, "true");
+
+    if (isNowBlind) {
+        applyBlindToLocalContent(activeId, targetLookupId);
+        closeModal('candidateReaderModal');
+        closeModal('creatorSingleReaderModal');
+        alert("🚨 누적 신고 20회에 도달하여 해당 콘텐츠가 자동 블라인드(가리기) 처리되었습니다.");
+    } else {
+        alert(`🚨 신고가 정상적으로 접수되었습니다. (현재 누적: ${currentCount}/20회)`);
+    }
+}
         // ⚙️ 관리자 대시보드 오픈 시 전체 콘텐츠 목록 및 신고 목록 동시 렌더링
         function openAdminDashboardModal() {
             if (!subAdminList.includes(currentUserId)) {
@@ -3092,6 +3193,13 @@ if (statusEl && item) {
     const candidates = targetRelay.chapters.filter(c => c.ch > 1);
     const cand = candidates[candIndex];
     if (!cand) return;
+    const reportBtn = document.getElementById('btnReportCandidate');
+    if (reportBtn) {
+    reportBtn.onclick = function () {
+        const targetId = cand.id || cand._id || targetRelay.id;
+        triggerReportAction(targetId, '릴레이 후보작', targetRelay.id);
+        };
+    }
 
     const titleEl = document.getElementById('candidateReaderTitle');
     const bodyEl = document.getElementById('candidateReaderBody');
@@ -3724,6 +3832,12 @@ function executeActualWriterSubmission(relayId, subtitle, content) {
         function readCreatorChapter(title, chNum) {
             closeModal('creatorReadModal');
             const targetCreator = creatorMockList.find(item => item.title === title);
+            const reportCreatorBtn = document.getElementById('btnReportCreatorSingle');
+            if (reportCreatorBtn && targetCreator) {
+                reportCreatorBtn.onclick = function () {
+                triggerReportAction(targetCreator.id, '오리지널 회차', targetCreator.id);
+                };
+            }
             const chapterObj = targetCreator && targetCreator.chapters 
                 ? targetCreator.chapters.find(c => c.ch === chNum) 
                 : null;
