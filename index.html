@@ -3072,6 +3072,7 @@ function renderAdminContentList() {
         });
     }
 
+    // 2. 오리지널 시리즈 목록 합치기
     if (filteredCreators.length > 0) {
         html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[오리지널 시리즈 목록]</div>`;
         filteredCreators.forEach(item => {
@@ -3100,34 +3101,8 @@ function renderAdminContentList() {
     listContainer.innerHTML = html;
 }
 
-    // 2. 오리지널 시리즈 목록 합치기
-    if (filteredCreators.length > 0) {
-        html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[오리지널 시리즈 목록]</div>`;
-        filteredCreators.forEach(item => {
-            const isBlind = Boolean(item.isBlind) || Number(item.reportCount || 0) >= 20;
-            const badge = buildAdminBlindBadge(item);
-            const rowStyle = isBlind
-                ? 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;'
-                : 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); border:1px solid transparent; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
-
-            html += `
-                <div style="${rowStyle}">
-                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:74%;">
-                        <b>[오리지널]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(작가: ${item.author || item.creatorName || '-'})</span>${badge}
-                    </div>
-                    <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'creator')">삭제</button>
-                </div>
-            `;
-        });
-    }
-
-    if (filteredRelays.length === 0 && filteredCreators.length === 0) {
-        html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">${adminBlindFilterMode === 'blind' ? '블라인드 처리된 게시글이 없습니다.' : '등록된 게시글이 없습니다.'}</div>`;
-    }
-
-    listContainer.innerHTML = html;
-}
-
+    
+ 
 // 🗑️ 관리자 글 삭제 실행 함수
 async function adminDeleteContent(contentId, type) {
     if (!confirm("⚠️ 정말 이 게시글을 영구 삭제하시겠습니까?")) return;
