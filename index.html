@@ -2994,8 +2994,13 @@ async function triggerReportAction(contentId, contentType, parentId = null) {
     if (!reason || !reason.trim()) return;
 
     const targetLookupId = parentId || activeId;
+    const matchedLocal =
+        (Array.isArray(relayMockList) ? relayMockList.find(r => r.id === targetLookupId || r.id === activeId) : null)
+        || (Array.isArray(creatorMockList) ? creatorMockList.find(c => c.id === targetLookupId || c.id === activeId) : null);
+
     let isNowBlind = false;
     let currentCount = 1;
+    let apiResult = null;
 
     try {
         const res = await fetch(`${BACKEND_URL}/api/safety/report`, {
@@ -3013,6 +3018,7 @@ async function triggerReportAction(contentId, contentType, parentId = null) {
             alert(`⚠️ ${data.message || '신고 처리 중 오류가 발생했습니다.'}`);
             return;
         }
+        apiResult = data;
         currentCount = data.reportCount || 1;
         isNowBlind = Boolean(data.isBlind) || currentCount >= 20;
     } catch (err) {
@@ -3045,6 +3051,13 @@ async function triggerReportAction(contentId, contentType, parentId = null) {
         applyBlindToLocalContent(activeId, targetLookupId);
         closeModal('candidateReaderModal');
         closeModal('creatorSingleReaderModal');
+
+        handleBlindAuthorNotification(
+            apiResult || { isBlind: true, reportCount: currentCount },
+            matchedLocal?.creatorName || matchedLocal?.author || '',
+            matchedLocal?.title || ''
+        );
+
         alert("🚨 누적 신고 20회에 도달하여 해당 콘텐츠가 자동 블라인드(가리기) 처리되었습니다.");
     } else {
         alert(`🚨 신고가 정상적으로 접수되었습니다. (현재 누적: ${currentCount}/20회)`);
@@ -3204,6 +3217,63 @@ async function adminDeleteContent(contentId, type) {
 
     alert("🗑️ 게시글이 성공적으로 삭제되었습니다.");
     renderAdminContentList();
+}
+
+        function handleBlindAuthorNotification(reportResult, fallbackCreatorName = '', fallbackTitle = '') {
+    if (!reportResult) return;
+
+    const isBlindedNow = Boolean(reportResult.isBlind) || Number(reportResult.reportCount || 0) >= 20;
+    const authorId = reportResult.creatorName || fallbackCreatorName || '';
+    if (!isBlindedNow || !authorId) return;
+
+    const noticeText = reportResult.authorNoticeMessage
+        || `작성하신 글${fallbackTitle ? ` "${fallbackTitle}"` : ''}이(가) 누적 신고 20회로 자동 블라인드 처리되었습니다.`;
+
+    // 1. 작성자 계정 전용 알림함에 누적 저장
+    const storageKey = `deep_blue_notifications_${authorId}`;
+    const existingNotices = JSON.parse(localStorage.getItem(storageKey)) || [];
+    existingNotices.unshift({
+        id: `blind_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        type: 'blind',
+        title: fallbackTitle || '게시글 블라인드 안내',
+        message: noticeText,
+        createdAt: Date.now(),
+        read: false
+    });
+    localStorage.setItem(storageKey, JSON.stringify(existingNotices));
+
+    // 2. 현재 접속 중인 유저가 작성자 본인인 경우 즉시 알림 표시
+    const activeUser = typeof currentUserId !== 'undefined' ? currentUserId : '';
+    if (activeUser && activeUser === authorId) {
+        alert(`🚫 ${noticeText}`);
+    }
+}(reportResult, fallbackCreatorName = '', fallbackTitle = '') {
+    if (!reportResult) return;
+
+    const isBlindedNow = Boolean(reportResult.isBlind) || Number(reportResult.reportCount || 0) >= 20;
+    const authorId = reportResult.creatorName || fallbackCreatorName || '';
+    if (!isBlindedNow || !authorId) return;
+
+    const noticeText = `작성하신 글${fallbackTitle ? ` "${fallbackTitle}"` : ''}이(가) 누적 신고 20회로 자동 블라인드 처리되었습니다.`;
+
+    // 1. 해당 작성자 계정 전용 알림함에 누적 저장 (다른 계정으로 로그인해도 내 아이디 기준 보관)
+    const storageKey = `deep_blue_notifications_${authorId}`;
+    const existingNotices = JSON.parse(localStorage.getItem(storageKey)) || [];
+    existingNotices.unshift({
+        id: `blind_${Date.now()}`,
+        type: 'blind',
+        title: fallbackTitle || '게시글 블라인드 안내',
+        message: noticeText,
+        createdAt: Date.now(),
+        read: false
+    });
+    localStorage.setItem(storageKey, JSON.stringify(existingNotices));
+
+    // 2. 지금 접속 중인 유저가 작성자 본인인 경우 즉시 알림 팝업 표시
+    const activeUser = typeof currentUserId !== 'undefined' ? currentUserId : '';
+    if (activeUser && activeUser === authorId) {
+        alert(`🚫 ${noticeText}`);
+    }
 }
         
         function addSubAdmin() {
