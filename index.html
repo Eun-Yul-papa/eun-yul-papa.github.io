@@ -1648,6 +1648,17 @@ function getNationCode(selectElementId) {
             // 3. 투표 기록 영구 저장
             localStorage.setItem(voteCheckKey, "true");
             localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+            fetch(`${BACKEND_URL}/api/relay/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        relayId,
+        ch: candidateCh,
+        title: candidate ? candidate.title : '',
+        author: candidate ? candidate.author : '',
+        voterId: currentUserId
+    })
+}).catch(err => console.warn("⚠️ 투표 DB 동기화 실패:", err));
 
             // 4. 나의 구독 활동에 반영
             if (!userVotedRelays.some(v => v.id === relayId)) {
@@ -1843,25 +1854,38 @@ function processRelayLifecycle(item, now = Date.now()) {
             relayMockList = result.data.map(item => {
                 const id = item.relayId || item._id;
                 const found = existingList.find(e => e.id === id);
+
+                const mergedChapters = (Array.isArray(item.chapters) && item.chapters.length > 0)
+                    ? item.chapters
+                    : (found && found.chapters && found.chapters.length > 0
+                        ? found.chapters
+                        : [{ ch: 1, title: item.subtitle || item.title, author: item.creatorName || currentUserId, content: item.content || '' }]);
+
+                const maxCh = Math.max(...mergedChapters.map(c => c.ch || 1));
+                const phase = item.phase || (found && found.phase) || 'write';
+                const computedCurrentCh = (found && found.currentCh && found.currentCh > maxCh)
+                    ? found.currentCh
+                    : (phase === 'vote'
+                        ? Math.max(2, maxCh)
+                        : (mergedChapters.length === 1 && maxCh === 1 ? 2 : maxCh + 1));
+
                 return {
                     id,
                     title: item.title,
                     subtitle: item.subtitle || '',
                     nation: item.nation || 'KR',
                     format: item.format || '소설',
-                    progress: item.progress || '0/5 참여중',
-                    phase: item.phase || 'write',
-                    currentCh: 1,
+                    progress: item.progress || (found && found.progress) || '0/5 참여중',
+                    phase,
+                    currentCh: computedCurrentCh,
                     createdAt: item.createdAt ? new Date(item.createdAt).getTime() : (found ? found.createdAt : Date.now()),
+                    writeStartedAt: found && found.writeStartedAt ? found.writeStartedAt : (item.createdAt ? new Date(item.createdAt).getTime() : Date.now()),
+                    voteStartedAt: found && found.voteStartedAt ? found.voteStartedAt : null,
                     content: item.content || '',
                     creatorName: item.creatorName || currentUserId || 'Pioneer',
                     isBlind: Boolean(item.isBlind),
                     reportCount: item.reportCount || 0,
-                    chapters: (Array.isArray(item.chapters) && item.chapters.length > 0)
-                        ? item.chapters
-                        : (found && found.chapters && found.chapters.length > 0
-                            ? found.chapters
-                            : [{ ch: 1, title: item.subtitle || item.title, author: item.creatorName || currentUserId, content: item.content || '' }])
+                    chapters: mergedChapters
                 };
             });
         }
@@ -3755,6 +3779,19 @@ function executeActualWriterSubmission(relayId, subtitle, content) {
     }
 
     localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+    fetch(`${BACKEND_URL}/api/relay/contribute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        relayId,
+        ch: targetWritingCh,
+        title: subtitle,
+        subtitle,
+        author: currentUserId,
+        content,
+        isFinalProposal: isFinal
+    })
+}).catch(err => console.warn("⚠️ 이어쓰기 DB 동기화 실패:", err));
 
     // 지갑 잔액 반영
     userSpentPi += 1.0;
