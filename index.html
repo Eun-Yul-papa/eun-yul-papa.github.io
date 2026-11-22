@@ -995,6 +995,10 @@ div[id$="-card-container"] p {
                 <div style="font-size: 0.95rem; font-weight: 800; color: var(--primary-cyan); margin: 18px 0 10px 0;">
                     🚨 실시간 신고 및 블라인드 관리 목록
                 </div>
+                <div style="display: flex; gap: 6px; margin-bottom: 10px;" id="adminBlindFilterBar">
+                    <button type="button" class="btn btn-outline" id="btnAdminFilterAll" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;" onclick="setAdminBlindFilter('all')">전체 보기</button>
+                    <button type="button" class="btn btn-outline" id="btnAdminFilterBlind" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;" onclick="setAdminBlindFilter('blind')">🚫 블라인드만</button>
+                </div>
                 <div id="adminReportedContentList" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
             <button class="btn btn-outline" style="margin-top: 16px;" onclick="closeModal('adminDashboardModal')">닫기</button>
@@ -1855,20 +1859,30 @@ function processRelayLifecycle(item, now = Date.now()) {
                 const id = item.relayId || item._id;
                 const found = existingList.find(e => e.id === id);
 
-                const mergedChapters = (Array.isArray(item.chapters) && item.chapters.length > 0)
+                const rawChapters = (Array.isArray(item.chapters) && item.chapters.length > 0)
                     ? item.chapters
                     : (found && found.chapters && found.chapters.length > 0
                         ? found.chapters
                         : [{ ch: 1, title: item.subtitle || item.title, author: item.creatorName || currentUserId, content: item.content || '' }]);
 
-                const maxCh = Math.max(...mergedChapters.map(c => c.ch || 1));
+                const normalizedChapters = [...rawChapters];
+                const hasCh1 = normalizedChapters.some(c => Number(c.ch) === 1);
+                if (!hasCh1 && (item.content || item.title)) {
+                    normalizedChapters.unshift({
+                        ch: 1,
+                        title: item.subtitle || item.title || '1화',
+                        author: item.creatorName || currentUserId || 'Pioneer',
+                        content: item.content || ''
+                    });
+                }
+
+                const maxCh = Math.max(...normalizedChapters.map(c => Number(c.ch) || 1));
                 const phase = item.phase || (found && found.phase) || 'write';
-                const hasCh1 = mergedChapters.some(c => Number(c.ch) === 1);
                 const computedCurrentCh = (found && found.currentCh && found.currentCh > maxCh)
                     ? found.currentCh
                     : (phase === 'vote'
                         ? Math.max(2, maxCh)
-                        : (!hasCh1 ? Math.max(2, maxCh) : (mergedChapters.length === 1 && maxCh === 1 ? 2 : maxCh + 1)));
+                        : (normalizedChapters.length === 1 && maxCh === 1 ? 2 : maxCh + 1));
 
                 return {
                     id,
@@ -1886,7 +1900,7 @@ function processRelayLifecycle(item, now = Date.now()) {
                     creatorName: item.creatorName || currentUserId || 'Pioneer',
                     isBlind: Boolean(item.isBlind),
                     reportCount: item.reportCount || 0,
-                    chapters: mergedChapters
+                    chapters: normalizedChapters
                 };
             });
         }
@@ -3054,78 +3068,143 @@ async function triggerReportAction(contentId, contentType, parentId = null) {
         }
 
         // 📋 관리자용 전체 글 목록 및 삭제 관리 렌더링
-        function renderAdminContentList() {
-            const listContainer = document.getElementById('adminReportedContentList');
-            if (!listContainer) return;
+        let adminBlindFilterMode = 'all';
 
-            let html = `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 테스트용 글이나 불건전한 게시글을 관리자 권한으로 즉시 삭제할 수 있습니다.</div>`;
+function setAdminBlindFilter(mode) {
+    adminBlindFilterMode = mode;
+    const btnAll = document.getElementById('btnAdminFilterAll');
+    const btnBlind = document.getElementById('btnAdminFilterBlind');
 
-            // 1. 스토리 릴레이 목록 합치기
-            if (relayMockList.length > 0) {
-                html += `<div style="font-weight:700; color:var(--primary-cyan); margin:8px 0 4px 0;">[스토리 릴레이 목록]</div>`;
-                relayMockList.forEach(item => {
-                    html += `
-                        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;">
-                            <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">
-                                <b>[릴레이]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(${item.nation})</span>
-                            </div>
-                            <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'relay')">삭제</button>
-                        </div>
-                    `;
-                });
-            }
-
-            // 2. 오리지널 시리즈 목록 합치기
-            if (creatorMockList.length > 0) {
-                html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[오리지널 시리즈 목록]</div>`;
-                creatorMockList.forEach(item => {
-                    html += `
-                        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;">
-                            <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">
-                                <b>[오리지널]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(작가: ${item.author})</span>
-                            </div>
-                            <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'creator')">삭제</button>
-                        </div>
-                    `;
-                });
-            }
-
-            if (relayMockList.length === 0 && creatorMockList.length === 0) {
-                html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">등록된 게시글이 없습니다.</div>`;
-            }
-
-            listContainer.innerHTML = html;
+    if (btnAll && btnBlind) {
+        if (mode === 'blind') {
+            btnBlind.style.borderColor = 'var(--danger-red)';
+            btnBlind.style.color = '#fca5a5';
+            btnAll.style.borderColor = '';
+            btnAll.style.color = '';
+        } else {
+            btnAll.style.borderColor = 'var(--primary-cyan)';
+            btnAll.style.color = 'var(--primary-cyan)';
+            btnBlind.style.borderColor = '';
+            btnBlind.style.color = '';
         }
-        // 🗑️ 관리자 글 삭제 실행 함수
-        async function adminDeleteContent(contentId, type) {
-            if (!confirm("⚠️ 정말 이 게시글을 영구 삭제하시겠습니까?")) return;
+    }
 
-            try {
-                // 💡 로컬 ID(card_...)인 경우 백엔드 통신 없이 곧바로 프론트엔드에서 삭제 처리
-                if (contentId.startsWith('card_') || contentId.startsWith('c_')) {
-                    throw new Error("Local ID - skip backend API");
-                }
+    renderAdminContentList();
+}
 
-                await fetch(`http://localhost:5000/api/admin/content/${contentId}`, {
-                    method: 'DELETE'
-                });
-            } catch (error) {
-                console.warn("⚠️ 로컬 테스트 모드로 즉시 삭제합니다.");
-            }
+function buildAdminBlindBadge(item) {
+    const count = Number(item.reportCount || 0);
+    const isBlind = Boolean(item.isBlind) || count >= 20;
+    if (isBlind) {
+        return `<span style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; background:rgba(239,68,68,0.22); border:1px solid #ef4444; color:#fca5a5; font-size:0.7rem; font-weight:800;">🚫 블라인드 (${count || 20}회)</span>`;
+    }
+    return `<span style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#6ee7b7; font-size:0.7rem; font-weight:700;">정상 (${count}회)</span>`;
+}
 
-            if (type === 'relay') {
-                relayMockList = relayMockList.filter(item => item.id !== contentId);
-                localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-                renderRelayListContent();
-            } else {
-                creatorMockList = creatorMockList.filter(item => item.id !== contentId);
-                localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
-                renderCreatorListViewContent();
-            }
+// 📋 관리자용 전체 글 목록 및 삭제 관리 렌더링
+function renderAdminContentList() {
+    const listContainer = document.getElementById('adminReportedContentList');
+    if (!listContainer) return;
 
-            alert("🗑️ 게시글이 성공적으로 삭제되었습니다.");
-            renderAdminContentList();
+    let html = `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 테스트용 글이나 불건전한 게시글을 관리자 권한으로 즉시 삭제할 수 있습니다.</div>`;
+
+    const relays = Array.isArray(relayMockList) ? relayMockList : [];
+    const creators = Array.isArray(creatorMockList) ? creatorMockList : [];
+
+    const filteredRelays = relays.filter(item => {
+        const isBlind = Boolean(item.isBlind) || Number(item.reportCount || 0) >= 20;
+        return adminBlindFilterMode === 'blind' ? isBlind : true;
+    });
+
+    const filteredCreators = creators.filter(item => {
+        const isBlind = Boolean(item.isBlind) || Number(item.reportCount || 0) >= 20;
+        return adminBlindFilterMode === 'blind' ? isBlind : true;
+    });
+
+    // 1. 스토리 릴레이 목록 합치기
+    if (filteredRelays.length > 0) {
+        html += `<div style="font-weight:700; color:var(--primary-cyan); margin:8px 0 4px 0;">[스토리 릴레이 목록]</div>`;
+        filteredRelays.forEach(item => {
+            const isBlind = Boolean(item.isBlind) || Number(item.reportCount || 0) >= 20;
+            const badge = buildAdminBlindBadge(item);
+            const rowStyle = isBlind
+                ? 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;'
+                : 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); border:1px solid transparent; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
+
+            html += `
+                <div style="${rowStyle}">
+                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:74%;">
+                        <b>[릴레이]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(${item.nation || 'KR'})</span>${badge}
+                    </div>
+                    <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'relay')">삭제</button>
+                </div>
+            `;
+        });
+    }
+
+    // 2. 오리지널 시리즈 목록 합치기
+    if (filteredCreators.length > 0) {
+        html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[오리지널 시리즈 목록]</div>`;
+        filteredCreators.forEach(item => {
+            const isBlind = Boolean(item.isBlind) || Number(item.reportCount || 0) >= 20;
+            const badge = buildAdminBlindBadge(item);
+            const rowStyle = isBlind
+                ? 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;'
+                : 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); border:1px solid transparent; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
+
+            html += `
+                <div style="${rowStyle}">
+                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:74%;">
+                        <b>[오리지널]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(작가: ${item.author || item.creatorName || '-'})</span>${badge}
+                    </div>
+                    <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'creator')">삭제</button>
+                </div>
+            `;
+        });
+    }
+
+    if (filteredRelays.length === 0 && filteredCreators.length === 0) {
+        html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">${adminBlindFilterMode === 'blind' ? '블라인드 처리된 게시글이 없습니다.' : '등록된 게시글이 없습니다.'}</div>`;
+    }
+
+    listContainer.innerHTML = html;
+}
+
+// 🗑️ 관리자 글 삭제 실행 함수
+async function adminDeleteContent(contentId, type) {
+    if (!confirm("⚠️ 정말 이 게시글을 영구 삭제하시겠습니까?")) return;
+
+    try {
+        // 💡 로컬 ID(card_...)인 경우 백엔드 통신 없이 곧바로 프론트엔드에서 삭제 처리
+        if (String(contentId).startsWith('card_') || String(contentId).startsWith('c_')) {
+            throw new Error("Local ID - skip backend API");
         }
+
+        const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'http://localhost:5000';
+        await fetch(`${baseUrl}/api/admin/content/${contentId}`, {
+            method: 'DELETE'
+        });
+    } catch (error) {
+        console.warn("⚠️ 로컬 테스트 모드로 즉시 삭제합니다.");
+    }
+
+    if (type === 'relay') {
+        relayMockList = relayMockList.filter(item => item.id !== contentId);
+        localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+        if (typeof renderRelayListContent === 'function') {
+            renderRelayListContent();
+        }
+    } else {
+        creatorMockList = creatorMockList.filter(item => item.id !== contentId);
+        localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
+        if (typeof renderCreatorListViewContent === 'function') {
+            renderCreatorListViewContent();
+        }
+    }
+
+    alert("🗑️ 게시글이 성공적으로 삭제되었습니다.");
+    renderAdminContentList();
+}
         
         function addSubAdmin() {
             const newAdmin = document.getElementById('inputSubAdminId').value.trim();
@@ -3647,8 +3726,6 @@ async function submitWriterContentWithPiPayment() {
 
 // ✍️ 2. 결제 완료 후 실행되는 실제 원고 등록 함수 (원본 로직 100% 보존)
 async function executeActualWriterSubmission(relayId, subtitle, content) {
-    console.log("▶ [1] executeActualWriterSubmission 진입:", { relayId, subtitle, contentLen: content?.length });
-
     const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite').checked : false;
     const targetRelay = relayMockList.find(r => r.id === relayId);
 
@@ -3670,13 +3747,13 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
     let latestConfirmedCh = chapters[0];
     let targetWritingCh = 2;
 
-    const maxCh = Math.max(...chapters.map(c => c.ch));
+    const maxCh = Math.max(...chapters.map(c => Number(c.ch) || 1));
     const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh || c.isWinner);
     if (confirmedChapters.length > 0) {
         latestConfirmedCh = confirmedChapters[confirmedChapters.length - 1];
-        targetWritingCh = latestConfirmedCh.ch + 1;
+        targetWritingCh = (Number(latestConfirmedCh.ch) || 1) + 1;
     } else if (chapters.length > 1) {
-        targetWritingCh = chapters[chapters.length - 1].ch;
+        targetWritingCh = Number(chapters[chapters.length - 1].ch) || 2;
     }
 
     const formatStr = targetRelay.format || '';
@@ -3706,14 +3783,13 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
             result = { rawText };
         }
 
-        
         if (!res.ok || !result.success) {
             throw new Error(result.message || `서버 응답 오류 (${res.status})`);
         }
         savedToServer = true;
     } catch (err) {
         console.error("❌ 이어쓰기 DB 저장 실패:", err);
-        alert("⚠️ 디버그 [2] 에러: " + (err?.message || err));
+        alert("⚠️ 결제는 완료되었으나 DB 저장 중 오류가 발생했습니다: " + (err?.message || err));
     }
 
     if (!creatorStudioHistory.some(h => h.id === relayId && h.ch === targetWritingCh)) {
@@ -3739,7 +3815,7 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
         isFinalProposal: finalFlag
     });
 
-    const candidates = targetRelay.chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
+    const candidates = targetRelay.chapters.filter(c => Number(c.ch) === targetWritingCh && Number(c.ch) > 1);
 
     if (candidates.length >= 5) {
         targetRelay.phase = 'vote';
