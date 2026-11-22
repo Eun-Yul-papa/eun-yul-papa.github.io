@@ -3682,7 +3682,6 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
     // 1. 서버 MongoDB Atlas에 이어쓰기 후보작 저장
     let savedToServer = false;
     try {
-        console.log("▶ [2] /api/relay/contribute 호출 직전:", BACKEND_URL, { relayId, targetWritingCh, currentUserId });
         const res = await fetch(`${BACKEND_URL}/api/relay/contribute`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3696,16 +3695,24 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
                 isFinalProposal: finalFlag
             })
         });
-        const result = await res.json();
+        const rawText = await res.text();
+        let result = {};
+        try {
+            result = JSON.parse(rawText);
+        } catch (e) {
+            result = { rawText };
+        }
+
+        alert(`디버그 [2]: status=${res.status}, success=${result.success}, msg=${result.message || rawText.slice(0, 120)}`);
+
         if (!res.ok || !result.success) {
             throw new Error(result.message || `서버 응답 오류 (${res.status})`);
         }
         savedToServer = true;
     } catch (err) {
         console.error("❌ 이어쓰기 DB 저장 실패:", err);
-        alert("⚠️ 결제는 완료되었으나 DB 저장 중 오류가 발생했습니다: " + (err?.message || err));
+        alert("⚠️ 디버그 [2] 에러: " + (err?.message || err));
     }
-
     // 2. 로컬 상태 및 화면 즉시 반영
     if (!creatorStudioHistory.some(h => h.id === relayId && h.ch === targetWritingCh)) {
         creatorStudioHistory.unshift({
