@@ -3247,35 +3247,8 @@ async function adminDeleteContent(contentId, type) {
     if (activeUser && activeUser === authorId) {
         alert(`🚫 ${noticeText}`);
     }
-}(reportResult, fallbackCreatorName = '', fallbackTitle = '') {
-    if (!reportResult) return;
-
-    const isBlindedNow = Boolean(reportResult.isBlind) || Number(reportResult.reportCount || 0) >= 20;
-    const authorId = reportResult.creatorName || fallbackCreatorName || '';
-    if (!isBlindedNow || !authorId) return;
-
-    const noticeText = `작성하신 글${fallbackTitle ? ` "${fallbackTitle}"` : ''}이(가) 누적 신고 20회로 자동 블라인드 처리되었습니다.`;
-
-    // 1. 해당 작성자 계정 전용 알림함에 누적 저장 (다른 계정으로 로그인해도 내 아이디 기준 보관)
-    const storageKey = `deep_blue_notifications_${authorId}`;
-    const existingNotices = JSON.parse(localStorage.getItem(storageKey)) || [];
-    existingNotices.unshift({
-        id: `blind_${Date.now()}`,
-        type: 'blind',
-        title: fallbackTitle || '게시글 블라인드 안내',
-        message: noticeText,
-        createdAt: Date.now(),
-        read: false
-    });
-    localStorage.setItem(storageKey, JSON.stringify(existingNotices));
-
-    // 2. 지금 접속 중인 유저가 작성자 본인인 경우 즉시 알림 팝업 표시
-    const activeUser = typeof currentUserId !== 'undefined' ? currentUserId : '';
-    if (activeUser && activeUser === authorId) {
-        alert(`🚫 ${noticeText}`);
-    }
 }
-        
+            
         function addSubAdmin() {
             const newAdmin = document.getElementById('inputSubAdminId').value.trim();
             if (newAdmin && !subAdminList.includes(newAdmin)) {
