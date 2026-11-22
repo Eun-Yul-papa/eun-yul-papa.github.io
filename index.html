@@ -1863,11 +1863,12 @@ function processRelayLifecycle(item, now = Date.now()) {
 
                 const maxCh = Math.max(...mergedChapters.map(c => c.ch || 1));
                 const phase = item.phase || (found && found.phase) || 'write';
+                const hasCh1 = mergedChapters.some(c => Number(c.ch) === 1);
                 const computedCurrentCh = (found && found.currentCh && found.currentCh > maxCh)
                     ? found.currentCh
                     : (phase === 'vote'
                         ? Math.max(2, maxCh)
-                        : (mergedChapters.length === 1 && maxCh === 1 ? 2 : maxCh + 1));
+                        : (!hasCh1 ? Math.max(2, maxCh) : (mergedChapters.length === 1 && maxCh === 1 ? 2 : maxCh + 1)));
 
                 return {
                     id,
@@ -3705,8 +3706,7 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
             result = { rawText };
         }
 
-        alert(`디버그 [2]: status=${res.status}, success=${result.success}, msg=${result.message || rawText.slice(0, 120)}`);
-
+        
         if (!res.ok || !result.success) {
             throw new Error(result.message || `서버 응답 오류 (${res.status})`);
         }
