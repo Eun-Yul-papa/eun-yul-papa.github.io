@@ -3454,73 +3454,7 @@ async function triggerReportAction(contentId, contentType, parentId = null) {
 
     openModal('writerModal');
 }
-
-        function executeActualWriterSubmission() {
-    const relayId = document.getElementById('activeRelayId').value;
-    const subTitleInput = document.getElementById('writerSubTitle');
-    const contentInput = document.getElementById('writerStoryContent');
-    const finalChk = document.getElementById('checkFinalChapterWrite');
-
-    const subTitle = subTitleInput ? subTitleInput.value.trim() : '';
-    const content = contentInput ? contentInput.value.trim() : '';
-
-    if (!subTitle || !content) {
-        alert('소제목과 본문 내용을 모두 입력해주세요.');
-        return;
-    }
-
-    const targetRelay = relayMockList.find(r => r.id === relayId);
-    if (!targetRelay) {
-        alert('대상 스토리를 찾을 수 없습니다.');
-        return;
-    }
-
-    const targetWritingCh = getRelayCurrentTargetChapter(targetRelay);
-    const formatStr = targetRelay.format || '';
-    const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
-    const isFinal = (!isLongFormat && targetWritingCh === 10)
-        ? true
-        : Boolean(finalChk && finalChk.checked);
-
-    if (!Array.isArray(targetRelay.chapters)) {
-        targetRelay.chapters = [];
-    }
-
-    targetRelay.chapters.push({
-        ch: targetWritingCh,
-        title: subTitle,
-        author: currentUserId || 'Pioneer',
-        content,
-        votes: 0,
-        isFinalProposal: isFinal,
-        submittedAt: Date.now()
-    });
-
-    const currentCandidates = targetRelay.chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
-    targetRelay.progress = `${currentCandidates.length}/5 참여중`;
-
-    // 5명 정원이 다 차면 즉시 3일 투표 단계로 전환
-    if (currentCandidates.length >= 5) {
-        targetRelay.phase = 'vote';
-        targetRelay.voteStartedAt = Date.now();
-    }
-
-    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-    localStorage.removeItem(`writer_draft_${relayId}`);
-
-    if (subTitleInput) subTitleInput.value = '';
-    if (contentInput) contentInput.value = '';
-    if (finalChk) finalChk.checked = false;
-
-    closeModal('writerModal');
-    if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
-    if (typeof renderRelayListContent === 'function') renderRelayListContent();
-
-    setTimeout(() => {
-        alert(`🎉 제 ${targetWritingCh}화 이어쓰기 후보작이 등록되었습니다!`);
-    }, 50);
-}
-        
+             
         function saveRelayDraft() {
             const relayId = document.getElementById('activeRelayId').value;
             const subtitle = document.getElementById('writerSubtitleInput').value;
@@ -3711,14 +3645,19 @@ async function submitWriterContentWithPiPayment() {
 }    
 
 // ✍️ 2. 결제 완료 후 실행되는 실제 원고 등록 함수 (원본 로직 100% 보존)
-function executeActualWriterSubmission(relayId, subtitle, content) {
+async function executeActualWriterSubmission(relayId, subtitle, content) {
     const isFinal = document.getElementById('checkFinalChapterWrite') ? document.getElementById('checkFinalChapterWrite').checked : false;
     const targetRelay = relayMockList.find(r => r.id === relayId);
 
     if (!targetRelay) return;
 
     if (!targetRelay.chapters || targetRelay.chapters.length === 0) {
-        targetRelay.chapters = [{ ch: 1, title: targetRelay.title, author: targetRelay.creatorName || currentUserId, content: targetRelay.content || '' }];
+        targetRelay.chapters = [{
+            ch: 1,
+            title: targetRelay.title,
+            author: targetRelay.creatorName || currentUserId,
+            content: targetRelay.content || ''
+        }];
     }
 
     const chapters = targetRelay.chapters;
@@ -3726,7 +3665,7 @@ function executeActualWriterSubmission(relayId, subtitle, content) {
     let targetWritingCh = 2;
 
     const maxCh = Math.max(...chapters.map(c => c.ch));
-    const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh);
+    const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh || c.isWinner);
     if (confirmedChapters.length > 0) {
         latestConfirmedCh = confirmedChapters[confirmedChapters.length - 1];
         targetWritingCh = latestConfirmedCh.ch + 1;
@@ -3734,44 +3673,71 @@ function executeActualWriterSubmission(relayId, subtitle, content) {
         targetWritingCh = chapters[chapters.length - 1].ch;
     }
 
-    // 크리에이터 스튜디오 참여 이력 추가
+    const formatStr = targetRelay.format || '';
+    const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
+    const finalFlag = (!isLongFormat && targetWritingCh === 10) ? true : Boolean(isFinal);
+
+    // 1. 서버 MongoDB Atlas에 이어쓰기 후보작 저장
+    let savedToServer = false;
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/relay/contribute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                relayId,
+                ch: targetWritingCh,
+                title: subtitle,
+                subtitle,
+                author: currentUserId || 'Pioneer',
+                content,
+                isFinalProposal: finalFlag
+            })
+        });
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+            throw new Error(result.message || `서버 응답 오류 (${res.status})`);
+        }
+        savedToServer = true;
+    } catch (err) {
+        console.error("❌ 이어쓰기 DB 저장 실패:", err);
+        alert("⚠️ 결제는 완료되었으나 DB 저장 중 오류가 발생했습니다: " + (err?.message || err));
+    }
+
+    // 2. 로컬 상태 및 화면 즉시 반영
     if (!creatorStudioHistory.some(h => h.id === relayId && h.ch === targetWritingCh)) {
-        creatorStudioHistory.unshift({ 
-            id: relayId, 
-            title: targetRelay.title, 
-            type: 'relay', 
-            status: `제 ${targetWritingCh}화 집필참여`, 
-            share: '지분산정중', 
-            ch: targetWritingCh 
+        creatorStudioHistory.unshift({
+            id: relayId,
+            title: targetRelay.title,
+            type: 'relay',
+            status: `제 ${targetWritingCh}화 집필참여`,
+            share: '지분산정중',
+            ch: targetWritingCh
         });
         if (typeof renderStudioHistoryList === 'function') {
             renderStudioHistoryList();
         }
     }
 
-    // 후보작으로 새 챕터 추가
     targetRelay.chapters.push({
         ch: targetWritingCh,
         title: subtitle,
-        author: currentUserId,
-        content: content,
-        votes: 0
+        author: currentUserId || 'Pioneer',
+        content,
+        votes: 0,
+        isFinalProposal: finalFlag
     });
 
-    const candidates = targetRelay.chapters.filter(c => c.ch === targetWritingCh);
+    const candidates = targetRelay.chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
 
-    if (isFinal) {
-        targetRelay.phase = 'completed';
-        targetRelay.completedAt = Date.now();
-    } else if (candidates.length >= 5) {
+    if (candidates.length >= 5) {
         targetRelay.phase = 'vote';
+        targetRelay.voteStartedAt = Date.now();
     } else {
         targetRelay.phase = 'write';
     }
-    
+
     targetRelay.progress = `${candidates.length}/5 참여중`;
-    
-    // 임시저장 원고 청소
+
     if (typeof relayDrafts !== 'undefined') {
         relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
         localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
@@ -3779,26 +3745,16 @@ function executeActualWriterSubmission(relayId, subtitle, content) {
     }
 
     localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-    fetch(`${BACKEND_URL}/api/relay/contribute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        relayId,
-        ch: targetWritingCh,
-        title: subtitle,
-        subtitle,
-        author: currentUserId,
-        content,
-        isFinalProposal: isFinal
-    })
-}).catch(err => console.warn("⚠️ 이어쓰기 DB 동기화 실패:", err));
 
-    // 지갑 잔액 반영
     userSpentPi += 1.0;
     currentBalance -= 1.0;
     updateWalletDisplay();
 
-    alert(isFinal ? "🏁 결제 완료 및 릴레이가 완결 처리되었습니다!" : `🎉 결제 완료 및 제 ${targetWritingCh}화 이어쓰기 후보작이 제출되었습니다! (현재 참여: ${candidates.length}/5명)`);
+    alert(savedToServer
+        ? `🎉 결제 및 DB 저장 완료! 제 ${targetWritingCh}화 이어쓰기 후보작이 등록되었습니다. (현재 참여: ${candidates.length}/5명)`
+        : `ℹ️ 로컬 화면에만 임시 등록되었습니다. Render 서버 배포 상태를 확인해주세요.`
+    );
+
     closeModal('writerModal');
     handleListCardClick(relayId);
     renderRelayListContent();
