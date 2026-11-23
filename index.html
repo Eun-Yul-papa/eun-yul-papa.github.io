@@ -1863,16 +1863,29 @@ function processRelayLifecycle(item, now = Date.now()) {
                     ? item.chapters
                     : (found && found.chapters && found.chapters.length > 0
                         ? found.chapters
-                        : [{ ch: 1, title: item.subtitle || item.title, author: item.creatorName || currentUserId, content: item.content || '' }]);
+                        : [{ ch: 1, title: item.subtitle || item.title, author: item.creatorName || currentUserId, content: item.content || '', reportCount: 0, isBlind: false }]);
 
-                const normalizedChapters = [...rawChapters];
+                const normalizedChapters = rawChapters.map(c => {
+                    const chReportCount = Number(c.reportCount || 0);
+                    return {
+                        ...c,
+                        id: c.id || c._id || null,
+                        ch: Number(c.ch) || 1,
+                        reportCount: chReportCount,
+                        isBlind: Boolean(c.isBlind) || chReportCount >= 20
+                    };
+                });
+
                 const hasCh1 = normalizedChapters.some(c => Number(c.ch) === 1);
                 if (!hasCh1 && (item.content || item.title)) {
+                    const rootCount = Number(item.reportCount || 0);
                     normalizedChapters.unshift({
                         ch: 1,
                         title: item.subtitle || item.title || '1화',
                         author: item.creatorName || currentUserId || 'Pioneer',
-                        content: item.content || ''
+                        content: item.content || '',
+                        reportCount: rootCount,
+                        isBlind: Boolean(item.isBlind) || rootCount >= 20
                     });
                 }
 
@@ -1883,6 +1896,8 @@ function processRelayLifecycle(item, now = Date.now()) {
                     : (phase === 'vote'
                         ? Math.max(2, maxCh)
                         : (normalizedChapters.length === 1 && maxCh === 1 ? 2 : maxCh + 1));
+
+                const itemReportCount = Number(item.reportCount || 0);
 
                 return {
                     id,
@@ -1898,8 +1913,8 @@ function processRelayLifecycle(item, now = Date.now()) {
                     voteStartedAt: found && found.voteStartedAt ? found.voteStartedAt : null,
                     content: item.content || '',
                     creatorName: item.creatorName || currentUserId || 'Pioneer',
-                    isBlind: Boolean(item.isBlind),
-                    reportCount: item.reportCount || 0,
+                    isBlind: Boolean(item.isBlind) || itemReportCount >= 20,
+                    reportCount: itemReportCount,
                     chapters: normalizedChapters
                 };
             });
@@ -1919,8 +1934,9 @@ function processRelayLifecycle(item, now = Date.now()) {
                 content: '동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세. 이 심해의 무한한 비밀을 파헤치기 위한 첫 번째 여정이 시작됩니다.',
                 creatorName: 'wnalsdud88',
                 isBlind: false,
+                reportCount: 0,
                 chapters: [
-                    { ch: 1, title: '시작의 서막', author: 'wnalsdud88', content: '동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세. 이 심해의 무한한 비밀을 파헤치기 위한 첫 번째 여정이 시작됩니다.' }
+                    { ch: 1, title: '시작의 서막', author: 'wnalsdud88', content: '동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세. 이 심해의 무한한 비밀을 파헤치기 위한 첫 번째 여정이 시작됩니다.', reportCount: 0, isBlind: false }
                 ]
             }];
         }
