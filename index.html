@@ -996,7 +996,7 @@ div[id$="-card-container"] p {
                     🚨 실시간 신고 및 블라인드 관리 목록
                 </div>
                 <div style="display: flex; gap: 6px; margin-bottom: 10px;" id="adminBlindFilterBar">
-                    <button type="button" class="btn btn-outline" id="btnAdminFilterAll" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;" onclick="setAdminBlindFilter('all')">전체 보기</button>
+                    <button type="button" class="btn btn-outline" id="btnAdminFilterReported" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0; border-color: var(--danger-red); color: #fca5a5;" onclick="setAdminBlindFilter('reported')">🚨 신고/블라인드</button>
                     <button type="button" class="btn btn-outline" id="btnAdminFilterBlind" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;" onclick="setAdminBlindFilter('blind')">🚫 블라인드만</button>
                 </div>
                 <div id="adminReportedContentList" style="max-height: 250px; overflow-y: auto;"></div>
@@ -1716,12 +1716,48 @@ function getRelayLatestConfirmedChapter(item) {
     return item.chapters[0];
 }
 
+function syncCompletedRelayToArchive(item, now, threeDaysMs) {
+    if (!item || item.phase !== 'completed') return false;
+    if (!item.completedAt) item.completedAt = now;
+
+    if (now - item.completedAt >= threeDaysMs) {
+        const archiveId = 'arc_' + item.id;
+        if (typeof archiveDataList !== 'undefined' && !archiveDataList.some(a => a.id === archiveId)) {
+            archiveDataList.unshift({
+                id: archiveId,
+                title: item.title,
+                type: 'relay',
+                format: item.format || '소설',
+                genre: item.genre || '릴레이 완결작',
+                flag: item.nation || 'KR',
+                nation: item.nation || 'KR',
+                totalCh: (item.chapters || []).length,
+                isLong: (item.chapters || []).length >= 11,
+                views: 0,
+                ratingSum: 0,
+                ratingCount: 0,
+                timestamp: now,
+                desc: item.content || '',
+                creatorName: item.creatorName || currentUserId,
+                chapters: item.chapters || [],
+                reviews: []
+            });
+            return true;
+        }
+    }
+    return false;
+}
+
 function processRelayLifecycle(item, now = Date.now()) {
     const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
     const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
     let changed = false;
 
-    if (!item || item.isBlind || item.phase === 'completed') return false;
+    if (!item || item.isBlind) return false;
+
+    if (item.phase === 'completed') {
+        return syncCompletedRelayToArchive(item, now, THREE_DAYS_MS);
+    }
 
     if (!item.createdAt) {
         item.createdAt = now;
@@ -1768,7 +1804,6 @@ function processRelayLifecycle(item, now = Date.now()) {
             const totalVotes = currentCandidates.reduce((sum, c) => sum + (c.votes || 0), 0);
 
             if (currentCandidates.length === 0 || totalVotes === 0) {
-                // 후보 0표 -> 기존 후보 정리 후 같은 회차 집필 재시작
                 item.chapters = item.chapters.filter(c => !(c.ch === currentTargetCh && c.ch > 1));
                 item.phase = 'write';
                 item.currentCh = currentTargetCh;
@@ -1777,7 +1812,6 @@ function processRelayLifecycle(item, now = Date.now()) {
                 item.progress = '0/5 참여중';
                 changed = true;
             } else {
-                // 최다 득표 후보 채택 (동점 시 배열 앞쪽 = 선등록 후보 우선)
                 let winner = currentCandidates[0];
                 for (let i = 1; i < currentCandidates.length; i++) {
                     if ((currentCandidates[i].votes || 0) > (winner.votes || 0)) {
@@ -1788,7 +1822,6 @@ function processRelayLifecycle(item, now = Date.now()) {
                 item.chapters = item.chapters.filter(c => c.ch !== currentTargetCh || c === winner);
                 winner.isWinner = true;
 
-                // 단편(6~10화 완결) vs 장편(11화 이상 완결 가능, 상한 없음)
                 const formatStr = item.format || '';
                 const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
                 const isFinalProposed = Boolean(winner.isFinalProposal);
@@ -1796,9 +1829,10 @@ function processRelayLifecycle(item, now = Date.now()) {
 
                 if (isFinalProposed || isShortLimitReached) {
                     item.phase = 'completed';
-                    item.completedAt = now;
+                    if (!item.completedAt) item.completedAt = now;
                     item.winnerCh = currentTargetCh;
                     item.winnerAuthor = winner.author;
+                    syncCompletedRelayToArchive(item, now, THREE_DAYS_MS);
                 } else {
                     const nextCh = currentTargetCh + 1;
                     item.phase = 'write';
@@ -1811,7 +1845,6 @@ function processRelayLifecycle(item, now = Date.now()) {
             }
         }
     }
-
     return changed;
 }
         
@@ -2494,7 +2527,11 @@ function processRelayLifecycle(item, now = Date.now()) {
     const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
     let changed = false;
 
-    if (!item || item.isBlind || item.phase === 'completed') return false;
+    if (!item || item.isBlind) return false;
+
+    if (item.phase === 'completed') {
+        return syncCompletedRelayToArchive(item, now, THREE_DAYS_MS);
+    }
 
     if (!item.createdAt) {
         item.createdAt = now;
@@ -2524,11 +2561,9 @@ function processRelayLifecycle(item, now = Date.now()) {
         const writeStart = item.writeStartedAt || item.createdAt;
         if (now - writeStart >= FIVE_DAYS_MS) {
             if (candidates.length === 0) {
-                // 참여자 0명 -> 가리기 처리
                 item.isBlind = true;
                 item.progress = '0/5 마감(가리기)';
             } else {
-                // 참여자 있음 -> 3일 투표 단계 전환
                 item.phase = 'vote';
                 item.voteStartedAt = writeStart + FIVE_DAYS_MS;
             }
@@ -2547,7 +2582,6 @@ function processRelayLifecycle(item, now = Date.now()) {
             const totalVotes = candidates.reduce((sum, c) => sum + (c.votes || 0), 0);
 
             if (candidates.length === 0 || totalVotes === 0) {
-                // 후보 0표 -> 후보 비우고 해당 회차 집필 재시작
                 item.chapters = item.chapters.filter(c => !(c.ch === targetCh && c.ch > 1));
                 item.phase = 'write';
                 item.currentCh = targetCh;
@@ -2556,7 +2590,6 @@ function processRelayLifecycle(item, now = Date.now()) {
                 item.progress = '0/5 참여중';
                 changed = true;
             } else {
-                // 최다 득표 후보 선정 (동점 시 먼저 등록된 후보 우선)
                 let winner = candidates[0];
                 for (let i = 1; i < candidates.length; i++) {
                     if ((candidates[i].votes || 0) > (winner.votes || 0)) {
@@ -2567,7 +2600,6 @@ function processRelayLifecycle(item, now = Date.now()) {
                 item.chapters = item.chapters.filter(c => c.ch !== targetCh || c === winner);
                 winner.isWinner = true;
 
-                // 단편(6~10화 완결) / 장편(11화 이상 완결 가능, 상한 없음)
                 const formatStr = item.format || '';
                 const isLongFormat = formatStr.includes('장편') || formatStr.includes('10+');
                 const isFinalProposed = Boolean(winner.isFinalProposal);
@@ -2575,11 +2607,12 @@ function processRelayLifecycle(item, now = Date.now()) {
 
                 if (isFinalProposed || isShortLimitReached) {
                     item.phase = 'completed';
-                    item.completedAt = now;
+                    if (!item.completedAt) item.completedAt = now;
                     item.winnerCh = targetCh;
                     item.winnerAuthor = winner.author;
+                    syncCompletedRelayToArchive(item, now, THREE_DAYS_MS);
                 } else {
-                    const nextCh = targetCh + 1;
+                    const nextCh = currentTargetCh ? currentTargetCh + 1 : targetCh + 1;
                     item.phase = 'write';
                     item.currentCh = nextCh;
                     item.writeStartedAt = now;
@@ -2593,7 +2626,6 @@ function processRelayLifecycle(item, now = Date.now()) {
 
     return changed;
 }
-
 function renderRelayListContent() {
     const container = document.getElementById('relay-card-container');
     if (!container) return;
@@ -3037,22 +3069,22 @@ function applyBlindToLocalContent(contentId, parentId = null, targetCh = null) {
         }
 
         // 📋 관리자용 전체 글 목록 및 삭제 관리 렌더링
-        let adminBlindFilterMode = 'all';
+        let adminBlindFilterMode = 'reported'; // 기본값: 신고 1회 이상 또는 블라인드 항목만 표시
 
 function setAdminBlindFilter(mode) {
-    adminBlindFilterMode = mode;
-    const btnAll = document.getElementById('btnAdminFilterAll');
+    adminBlindFilterMode = mode === 'blind' ? 'blind' : 'reported';
+    const btnReported = document.getElementById('btnAdminFilterReported');
     const btnBlind = document.getElementById('btnAdminFilterBlind');
 
-    if (btnAll && btnBlind) {
-        if (mode === 'blind') {
+    if (btnReported && btnBlind) {
+        if (adminBlindFilterMode === 'blind') {
             btnBlind.style.borderColor = 'var(--danger-red)';
             btnBlind.style.color = '#fca5a5';
-            btnAll.style.borderColor = '';
-            btnAll.style.color = '';
+            btnReported.style.borderColor = '';
+            btnReported.style.color = '';
         } else {
-            btnAll.style.borderColor = 'var(--primary-cyan)';
-            btnAll.style.color = 'var(--primary-cyan)';
+            btnReported.style.borderColor = 'var(--danger-red)';
+            btnReported.style.color = '#fca5a5';
             btnBlind.style.borderColor = '';
             btnBlind.style.color = '';
         }
@@ -3074,14 +3106,15 @@ function renderAdminContentList() {
     const listContainer = document.getElementById('adminReportedContentList');
     if (!listContainer) return;
 
-    let html = `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 1회 이상 신고된 항목은 붉은 음영, 20회 이상 블라인드 항목은 배지로 표시됩니다.</div>`;
+    let html = `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 신고 1회 이상 또는 블라인드 처리된 항목만 표시됩니다. (20회 이상은 블라인드 배지 표시)</div>`;
 
     const relays = Array.isArray(relayMockList) ? relayMockList : [];
     const creators = Array.isArray(creatorMockList) ? creatorMockList : [];
 
-    // 릴레이 시리즈 + 각 회차/후보작을 평탄화하여 회차 단위로 관리
     const relayRows = [];
     relays.forEach(item => {
+        if (item.phase === 'completed') return;
+
         const rootCount = Number(item.reportCount || 0);
         const rootBlind = Boolean(item.isBlind) || rootCount >= 20;
         relayRows.push({
@@ -3111,25 +3144,23 @@ function renderAdminContentList() {
         }
     });
 
-    const filteredRelayRows = relayRows.filter(row =>
-        adminBlindFilterMode === 'blind' ? row.isBlind : true
-    );
+    const matchesFilter = (count, isBlind) => {
+        if (adminBlindFilterMode === 'blind') return isBlind;
+        return count >= 1 || isBlind;
+    };
 
+    const filteredRelayRows = relayRows.filter(row => matchesFilter(row.reportCount, row.isBlind));
     const filteredCreators = creators.filter(item => {
         const count = Number(item.reportCount || 0);
         const isBlind = Boolean(item.isBlind) || count >= 20;
-        return adminBlindFilterMode === 'blind' ? isBlind : true;
+        return matchesFilter(count, isBlind);
     });
 
     if (filteredRelayRows.length > 0) {
-        html += `<div style="font-weight:700; color:var(--primary-cyan); margin:8px 0 4px 0;">[스토리 릴레이 목록]</div>`;
+        html += `<div style="font-weight:700; color:var(--primary-cyan); margin:8px 0 4px 0;">[신고/블라인드 릴레이 항목]</div>`;
         filteredRelayRows.forEach(row => {
-            const hasAnyReport = row.reportCount >= 1 || row.isBlind;
             const badge = buildAdminBlindBadge(row);
-            const rowStyle = hasAnyReport
-                ? 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;'
-                : 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); border:1px solid transparent; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
-
+            const rowStyle = 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
             const rightBtn = row.onDelete
                 ? `<button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="${row.onDelete}">삭제</button>`
                 : `<span style="font-size:0.72rem; color:var(--text-sub);">${row.isBlind ? '블라인드됨' : '후보작'}</span>`;
@@ -3146,15 +3177,12 @@ function renderAdminContentList() {
     }
 
     if (filteredCreators.length > 0) {
-        html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[오리지널 시리즈 목록]</div>`;
+        html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[신고/블라인드 오리지널 항목]</div>`;
         filteredCreators.forEach(item => {
             const count = Number(item.reportCount || 0);
             const isBlind = Boolean(item.isBlind) || count >= 20;
-            const hasAnyReport = count >= 1 || isBlind;
             const badge = buildAdminBlindBadge(item);
-            const rowStyle = hasAnyReport
-                ? 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;'
-                : 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); border:1px solid transparent; padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
+            const rowStyle = 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
 
             html += `
                 <div style="${rowStyle}">
@@ -3168,12 +3196,11 @@ function renderAdminContentList() {
     }
 
     if (filteredRelayRows.length === 0 && filteredCreators.length === 0) {
-        html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">${adminBlindFilterMode === 'blind' ? '블라인드 처리된 게시글이 없습니다.' : '등록된 게시글이 없습니다.'}</div>`;
+        html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">${adminBlindFilterMode === 'blind' ? '블라인드 처리된 게시글이 없습니다.' : '신고 접수되거나 블라인드된 게시글이 없습니다.'}</div>`;
     }
 
     listContainer.innerHTML = html;
 }
-
     
  
 // 🗑️ 관리자 글 삭제 실행 함수
