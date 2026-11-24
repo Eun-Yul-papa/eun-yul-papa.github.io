@@ -2461,6 +2461,22 @@ function processRelayLifecycle(item, now = Date.now()) {
                 backToArchiveHub(); // 허브 화면 강제 노출 & 목록 숨김
             }
         }
+
+        function setDefaultListViewMode(section) {
+            const containerId = section === 'creator'
+                ? 'creator-card-container'
+                : (section === 'archive' ? 'archive-card-container' : 'relay-card-container');
+            const toggleBtnId = section === 'creator'
+                ? 'creatorViewToggle'
+                : (section === 'archive' ? 'archiveViewToggle' : 'relayViewToggle');
+
+            const container = document.getElementById(containerId);
+            const toggleBtn = document.getElementById(toggleBtnId);
+
+            if (container) container.classList.add('board-list-container');
+            if (toggleBtn) toggleBtn.innerText = '🗂️ 카드뷰';
+        }
+        
         function showRelayListView(mode) {
             currentRelayHubMode = mode;
             document.getElementById('relayHubView').style.display = 'none';
