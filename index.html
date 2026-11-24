@@ -3058,7 +3058,7 @@ if (statusEl && item) {
     return Boolean(cand.isBlind) || Number(cand.reportCount || 0) >= 20;
 }
 
-function applyBlindToLocalContent(contentId, parentId = null, targetCh = null) {
+function applyBlindToLocalContent(contentId, parentId = null, targetCh = null, serverCount = null, serverIsBlind = null) {
     let relayUpdated = false;
     let creatorUpdated = false;
 
@@ -3075,35 +3075,37 @@ function applyBlindToLocalContent(contentId, parentId = null, targetCh = null) {
 
                 if (isChapMatch) {
                     matchedChapter = true;
-                    ch.reportCount = (ch.reportCount || 0) + 1;
-                    if (ch.reportCount >= 20) {
-                        ch.isBlind = true;
-                        // 1화 본문만 20회 블라인드일 때 시리즈 전체 숨김, 2화 이상 후보작은 해당 후보만 블라인드
-                        if (Number(ch.ch) === 1) {
-                            item.isBlind = true;
-                        }
+                    const nextCount = (serverCount !== null && serverCount !== undefined)
+                        ? Number(serverCount)
+                        : Number(ch.reportCount || 0) + 1;
+                    ch.reportCount = nextCount;
+                    ch.isBlind = Boolean(serverIsBlind) || nextCount >= 20;
+
+                    if (ch.isBlind && Number(ch.ch) === 1) {
+                        item.isBlind = true;
                     }
                     relayUpdated = true;
                 }
             });
         }
 
-        // 특정 회차/후보가 아니라 시리즈 자체(1화)를 신고한 경우만 시리즈 블라인드 처리
         if (isParentMatch && !matchedChapter && (targetCh === null || Number(targetCh) === 1)) {
-            item.reportCount = (item.reportCount || 0) + 1;
-            if (item.reportCount >= 20) {
-                item.isBlind = true;
-            }
+            const nextCount = (serverCount !== null && serverCount !== undefined)
+                ? Number(serverCount)
+                : Number(item.reportCount || 0) + 1;
+            item.reportCount = nextCount;
+            item.isBlind = Boolean(serverIsBlind) || nextCount >= 20;
             relayUpdated = true;
         }
     });
 
     creatorMockList.forEach(item => {
         if (item.id === contentId || (parentId && item.id === parentId)) {
-            item.reportCount = (item.reportCount || 0) + 1;
-            if (item.reportCount >= 20) {
-                item.isBlind = true;
-            }
+            const nextCount = (serverCount !== null && serverCount !== undefined)
+                ? Number(serverCount)
+                : Number(item.reportCount || 0) + 1;
+            item.reportCount = nextCount;
+            item.isBlind = Boolean(serverIsBlind) || nextCount >= 20;
             creatorUpdated = true;
         }
     });
@@ -3119,7 +3121,11 @@ function applyBlindToLocalContent(contentId, parentId = null, targetCh = null) {
         if (typeof renderCreatorListViewContent === 'function') renderCreatorListViewContent();
         if (typeof updateCreatorHubBadges === 'function') updateCreatorHubBadges();
     }
-}
+
+    if (typeof renderAdminContentList === 'function') {
+        renderAdminContentList();
+    }
+}       
         // ⚙️ 관리자 대시보드 오픈 시 전체 콘텐츠 목록 및 신고 목록 동시 렌더링
         function openAdminDashboardModal() {
             if (!subAdminList.includes(currentUserId)) {
@@ -3356,7 +3362,6 @@ async function adminDeleteContent(contentId, type) {
     const matchedRelay = Array.isArray(relayMockList) ? relayMockList.find(r => r.id === targetLookupId || r.id === activeId) : null;
     const matchedCreator = Array.isArray(creatorMockList) ? creatorMockList.find(c => c.id === targetLookupId || c.id === activeId) : null;
 
-    // 2화 이상 후보작인 경우 해당 후보작의 작성자와 제목을 추출
     let matchedCand = null;
     if (matchedRelay && Array.isArray(matchedRelay.chapters)) {
         matchedCand = matchedRelay.chapters.find(c =>
@@ -3374,6 +3379,7 @@ async function adminDeleteContent(contentId, type) {
     let isNowBlind = false;
     let currentCount = 1;
     let apiResult = null;
+    let hasServerCount = false;
 
     try {
         const res = await fetch(`${BACKEND_URL}/api/safety/report`, {
@@ -3394,26 +3400,34 @@ async function adminDeleteContent(contentId, type) {
             return;
         }
         apiResult = data;
-        currentCount = data.reportCount || 1;
+        if (data.reportCount !== undefined && data.reportCount !== null) {
+            currentCount = Number(data.reportCount);
+            hasServerCount = true;
+        }
         isNowBlind = Boolean(data.isBlind) || currentCount >= 20;
     } catch (err) {
         console.warn("⚠️ 백엔드 신고 통신 실패, 로컬 상태로 처리합니다:", err);
         if (matchedCand) {
-            currentCount = (matchedCand.reportCount || 0) + 1;
+            currentCount = Number(matchedCand.reportCount || 0) + 1;
             isNowBlind = currentCount >= 20;
         } else if (matchedRelay) {
-            currentCount = (matchedRelay.reportCount || 0) + 1;
+            currentCount = Number(matchedRelay.reportCount || 0) + 1;
             isNowBlind = currentCount >= 20;
         } else if (matchedCreator) {
-            currentCount = (matchedCreator.reportCount || 0) + 1;
+            currentCount = Number(matchedCreator.reportCount || 0) + 1;
             isNowBlind = currentCount >= 20;
         }
     }
 
     localStorage.setItem(reportKey, "true");
 
-    // 1회 이상 신고 시 관리자 대시보드 붉은 음영 반영 및 20회 시 블라인드 처리
-    applyBlindToLocalContent(activeId, targetLookupId, targetCh);
+    applyBlindToLocalContent(
+        activeId,
+        targetLookupId,
+        targetCh,
+        hasServerCount ? currentCount : null,
+        isNowBlind
+    );
 
     if (isNowBlind) {
         closeModal('candidateReaderModal');
