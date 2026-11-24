@@ -2186,6 +2186,51 @@ function processRelayLifecycle(item, now = Date.now()) {
         );
     }, 50);
 }
+
+        async function adminDeleteCandidate(relayId, chNum) {
+    if (!confirm(`⚠️ 이 릴레이의 ${chNum}화 후보작을 삭제하시겠습니까?`)) return;
+
+    const targetRelay = relayMockList.find(r => r.id === relayId);
+    if (!targetRelay) {
+        alert("대상 릴레이를 찾지 못했습니다.");
+        return;
+    }
+
+    targetRelay.chapters = (targetRelay.chapters || []).filter(
+        c => !(Number(c.ch) === Number(chNum) && Number(c.ch) > 1)
+    );
+
+    const remainingCandidates = targetRelay.chapters.filter(
+        c => Number(c.ch) === Number(chNum) && Number(c.ch) > 1 && !isCandidateBlinded(c)
+    );
+    targetRelay.progress = `${remainingCandidates.length}/5 참여중`;
+
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+
+    try {
+        if (!String(relayId).startsWith('card_') && !String(relayId).startsWith('c_')) {
+            const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'http://localhost:5000';
+            await fetch(`${baseUrl}/api/relay/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    relayId,
+                    phase: targetRelay.phase,
+                    progress: targetRelay.progress,
+                    isBlind: Boolean(targetRelay.isBlind),
+                    chapters: targetRelay.chapters
+                })
+            });
+        }
+    } catch (err) {
+        console.warn("⚠️ 후보작 서버 동기화 생략(로컬 반영 완료):", err);
+    }
+
+    if (typeof renderRelayListContent === 'function') renderRelayListContent();
+    if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
+    renderAdminContentList();
+    alert(`🗑️ ${chNum}화 후보작이 삭제되었습니다.`);
+}
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
@@ -3162,7 +3207,7 @@ function renderAdminContentList() {
                     meta: `작가: ${ch.author || '-'}`,
                     reportCount: chCount,
                     isBlind: chBlind,
-                    onDelete: null
+                    onDelete: `adminDeleteCandidate('${item.id}', ${ch.ch})`
                 });
             });
         }
