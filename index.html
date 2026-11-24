@@ -718,7 +718,7 @@ div[id$="-card-container"] p {
                         <div class="section-title" id="relayListHeaderTitle">스토리 릴레이 목록</div>
                         <div style="display: flex; gap: 8px;">
                             <button class="view-toggle-btn" onclick="backToRelayHub()">⬅ 허브로</button>
-                            <button class="view-toggle-btn" id="relayViewToggle" onclick="toggleViewMode('relay')">☰ 리스트뷰</button>
+                            <button class="view-toggle-btn" id="relayViewToggle" onclick="toggleViewMode('relay')">🗂️ 카드뷰</button>
                         </div>
                     </div>
                 </div>
@@ -742,7 +742,7 @@ div[id$="-card-container"] p {
                     </select>
                 </div>
 
-                <div id="relay-card-container"></div>
+                <div id="relay-card-container" class="board-list-container"></div>
             </div>
         </div>
 
@@ -780,7 +780,7 @@ div[id$="-card-container"] p {
                         <div class="section-title">오리지널 시리즈 전체 목록</div>
                         <div style="display: flex; gap: 8px;">
                             <button class="view-toggle-btn" onclick="backToCreatorHub()">⬅ 허브로</button>
-                            <button class="view-toggle-btn" id="creatorViewToggle" onclick="toggleViewMode('creator')">☰ 리스트뷰</button>
+                            <button class="view-toggle-btn" id="creatorViewToggle" onclick="toggleViewMode('creator')">🗂️ 카드뷰</button>
                         </div>
                     </div>
                 </div>
@@ -804,7 +804,7 @@ div[id$="-card-container"] p {
                     </select>
                 </div>
 
-                <div id="creator-card-container"></div>
+                <div id="creator-card-container" class="board-list-container"></div>
             </div>
         </div>
 
@@ -846,7 +846,7 @@ div[id$="-card-container"] p {
                         <div class="section-title" id="archiveListHeaderTitle">완결작 목록</div>
                         <div style="display: flex; gap: 8px;">
                             <button class="view-toggle-btn" onclick="backToArchiveHub()">⬅ 아카이브로</button>
-                            <button class="view-toggle-btn" id="archiveViewToggle" onclick="toggleViewMode('archive')">☰ 리스트뷰</button>
+                            <button class="view-toggle-btn" id="archiveViewToggle" onclick="toggleViewMode('archive')">🗂️ 카드뷰</button>
                         </div>
                     </div>
                 </div>
@@ -869,7 +869,7 @@ div[id$="-card-container"] p {
                     </div>
                 </div>
 
-                <div id="archive-card-container"></div>
+                <div id="archive-card-container" class="board-list-container"></div>
             </div>
         </div>
 
@@ -2181,7 +2181,7 @@ function processRelayLifecycle(item, now = Date.now()) {
 
     setTimeout(() => {
         alert(savedToServer
-            ? `🎉 '${title}' 스토리 릴레이가 DB에 저장되었습니다!`
+            ? `🎉 '${title}' 스토리 릴레이가 개설되었습니다!`
             : `ℹ️ '${title}' 릴레이가 로컬 화면에만 반영되었습니다.`
         );
     }, 50);
@@ -2465,7 +2465,10 @@ function processRelayLifecycle(item, now = Date.now()) {
             currentRelayHubMode = mode;
             document.getElementById('relayHubView').style.display = 'none';
             document.getElementById('relayListViewContainer').style.display = 'block';
-            document.getElementById('relayListHeaderTitle').innerText = mode === 'write' ? '이어쓰기 참여 가능한 글 목록' : '투표 가능한 릴레이 후보 글목록';
+            document.getElementById('relayListHeaderTitle').innerText = mode === 'write'
+                ? '이어쓰기 참여 가능한 글 목록'
+                : '투표 가능한 릴레이 후보 글목록';
+            setDefaultListViewMode('relay');
             renderRelayListContent();
         }
 
@@ -2480,9 +2483,9 @@ function processRelayLifecycle(item, now = Date.now()) {
         function showCreatorListView() {
             document.getElementById('creatorHubView').style.display = 'none';
             document.getElementById('creatorListViewContainer').style.display = 'block';
+            setDefaultListViewMode('creator');
             renderCreatorListViewContent();
         }
-
         function backToCreatorHub() {
             document.getElementById('creatorListViewContainer').style.display = 'none';
             document.getElementById('creatorHubView').style.display = 'flex';
@@ -2492,6 +2495,7 @@ function processRelayLifecycle(item, now = Date.now()) {
         function showArchiveFilteredList(type) {
             document.getElementById('archiveHubView').style.display = 'none';
             document.getElementById('archiveListViewContainer').style.display = 'block';
+            setDefaultListViewMode('archive');
             renderArchiveList();
         }
 
@@ -2503,11 +2507,16 @@ function processRelayLifecycle(item, now = Date.now()) {
         }
 
         function toggleViewMode(section) {
-            let containerId = section === 'creator' ? 'creator-card-container' : (section === 'archive' ? 'archive-card-container' : 'relay-card-container');
-            let toggleBtnId = section === 'creator' ? 'creatorViewToggle' : (section === 'archive' ? 'archiveViewToggle' : 'relayViewToggle');
+            const containerId = section === 'creator'
+                ? 'creator-card-container'
+                : (section === 'archive' ? 'archive-card-container' : 'relay-card-container');
+            const toggleBtnId = section === 'creator'
+                ? 'creatorViewToggle'
+                : (section === 'archive' ? 'archiveViewToggle' : 'relayViewToggle');
 
             const container = document.getElementById(containerId);
             const toggleBtn = document.getElementById(toggleBtnId);
+            if (!container || !toggleBtn) return;
 
             if (container.classList.contains('board-list-container')) {
                 container.classList.remove('board-list-container');
@@ -2521,7 +2530,6 @@ function processRelayLifecycle(item, now = Date.now()) {
             if (section === 'relay') renderRelayListContent();
             if (section === 'creator') renderCreatorListViewContent();
         }
-
         function settleRelayInList(item, now) {
     const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
     const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -3996,7 +4004,7 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
     updateWalletDisplay();
 
     alert(savedToServer
-        ? `🎉 결제 및 DB 저장 완료! 제 ${targetWritingCh}화 이어쓰기 후보작이 등록되었습니다. (현재 참여: ${candidates.length}/5명)`
+        ? `🎉 결제 완료! 제 ${targetWritingCh}화 이어쓰기 후보작이 등록되었습니다. (현재 참여: ${candidates.length}/5명)`
         : `ℹ️ 로컬 화면에만 임시 등록되었습니다. Render 서버 배포 상태를 확인해주세요.`
     );
 
