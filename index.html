@@ -639,7 +639,7 @@ div[id$="-card-container"] p {
             </div>
             
             <div class="landing-info-card">
-                <div class="landing-info-title">🌊 DEEP BLUE SEA의 브랜드 스토리 & 비전</div>
+                <div class="landing-info-title">🌊 브랜드 스토리 & 비전</div>
                 <div class="landing-info-text">
                     끝없이 깊은 심해 속 미지의 세상에 우리가 아직 알지 못하는 수많은 생명과 비밀이 숨겨져 있듯, <b>AI가 공존하는 시대 속에서도 인간의 무한한 창작 능력과 가능성은 끊임없이 샘솟아 나옵니다.</b><br><br>
                     Deep Blue Sea는 파이 네트워크(Pi Network) 기반의 <b>탈중앙화 Web3 스토리텔링 플랫폼</b>입니다. 누구나 부담 없이 무료로 이야기를 읽고 투표에 참여하며, 작가는 물론 독자까지 <b>생태계에 기여한 가치만큼 소득과 보상을 함께 나누는 지속 가능한 창작 경제</b>를 만들어갑니다.
@@ -2230,6 +2230,9 @@ function processRelayLifecycle(item, now = Date.now()) {
         return;
     }
 
+    const prevChapters = JSON.parse(JSON.stringify(targetRelay.chapters || []));
+    const prevProgress = targetRelay.progress;
+
     targetRelay.chapters = (targetRelay.chapters || []).filter(
         c => !(Number(c.ch) === Number(chNum) && Number(c.ch) > 1)
     );
@@ -2239,31 +2242,44 @@ function processRelayLifecycle(item, now = Date.now()) {
     );
     targetRelay.progress = `${remainingCandidates.length}/5 참여중`;
 
-    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-
+    let syncedToServer = false;
     try {
-        if (!String(relayId).startsWith('card_') && !String(relayId).startsWith('c_')) {
-            const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'http://localhost:5000';
-            await fetch(`${baseUrl}/api/relay/sync`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    relayId,
-                    phase: targetRelay.phase,
-                    progress: targetRelay.progress,
-                    isBlind: Boolean(targetRelay.isBlind),
-                    chapters: targetRelay.chapters
-                })
-            });
+        const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'http://localhost:5000';
+        const res = await fetch(`${baseUrl}/api/relay/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                relayId,
+                phase: targetRelay.phase,
+                progress: targetRelay.progress,
+                isBlind: Boolean(targetRelay.isBlind),
+                chapters: targetRelay.chapters
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) {
+            throw new Error(data.message || `서버 동기화 실패 (${res.status})`);
         }
+        syncedToServer = true;
     } catch (err) {
-        console.warn("⚠️ 후보작 서버 동기화 생략(로컬 반영 완료):", err);
+        console.warn("⚠️ 후보작 서버 동기화 실패:", err);
+        if (!String(relayId).startsWith('card_') && !String(relayId).startsWith('c_')) {
+            targetRelay.chapters = prevChapters;
+            targetRelay.progress = prevProgress;
+            alert("⚠️ DB에서 후보작을 삭제하지 못했습니다: " + (err?.message || err));
+            return;
+        }
     }
+
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
 
     if (typeof renderRelayListContent === 'function') renderRelayListContent();
     if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
     renderAdminContentList();
-    alert(`🗑️ ${chNum}화 후보작이 삭제되었습니다.`);
+    alert(syncedToServer
+        ? `🗑️ ${chNum}화 후보작이 DB와 목록에서 삭제되었습니다.`
+        : `🗑️ ${chNum}화 후보작이 삭제되었습니다.`
+    );
 }
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
