@@ -1716,6 +1716,39 @@ function getRelayLatestConfirmedChapter(item) {
     return item.chapters[0];
 }
 
+    function getRelayActiveChapter(item) {
+    if (!item) return 2;
+    const chapters = Array.isArray(item.chapters) ? item.chapters : [];
+    const winners = chapters.filter(c => Number(c.ch) > 1 && c.isWinner);
+    const highestWinnerCh = winners.length > 0
+        ? Math.max(...winners.map(c => Number(c.ch) || 1))
+        : 1;
+    const activeCh = highestWinnerCh + 1;
+    return activeCh >= 2 ? activeCh : 2;
+}
+
+function getRelayConfirmedStoryText(item) {
+    if (!item) return '';
+    const chapters = Array.isArray(item.chapters) ? item.chapters : [];
+    const ch1 = chapters.find(c => Number(c.ch) === 1) || {
+        ch: 1,
+        title: item.subtitle || item.title || '제 1화',
+        author: item.creatorName || currentUserId || 'Pioneer',
+        content: item.content || ''
+    };
+    const confirmedWinners = chapters
+        .filter(c => Number(c.ch) > 1 && c.isWinner)
+        .sort((a, b) => Number(a.ch) - Number(b.ch));
+
+    const parts = [
+        `[제 ${ch1.ch}화 : ${ch1.title || item.title}]\n(작가: ${ch1.author || item.creatorName})\n\n${ch1.content || ''}`
+    ];
+    confirmedWinners.forEach(w => {
+        parts.push(`[제 ${w.ch}화 : ${w.title || '무제'}]\n(작가: ${w.author || 'Pioneer'})\n\n${w.content || ''}`);
+    });
+    return parts.join('\n\n--------------------------------------------------\n\n');
+}
+
 function syncCompletedRelayToArchive(item, now, threeDaysMs) {
     if (!item || item.phase !== 'completed') return false;
     if (!item.completedAt) item.completedAt = now;
@@ -1924,11 +1957,12 @@ function processRelayLifecycle(item, now = Date.now()) {
 
                 const maxCh = Math.max(...normalizedChapters.map(c => Number(c.ch) || 1));
                 const phase = item.phase || (found && found.phase) || 'write';
-                const computedCurrentCh = (found && found.currentCh && found.currentCh > maxCh)
-                    ? found.currentCh
-                    : (phase === 'vote'
-                        ? Math.max(2, maxCh)
-                        : (normalizedChapters.length === 1 && maxCh === 1 ? 2 : maxCh + 1));
+                const computedCurrentCh = getRelayActiveChapter({
+                    ...item,
+                    chapters: normalizedChapters,
+                    content: item.content,
+                    creatorName: item.creatorName
+                });
 
                 const itemReportCount = Number(item.reportCount || 0);
 
@@ -2751,14 +2785,9 @@ function renderRelayListContent() {
         }];
 
         let maxCh = Math.max(...chapters.map(c => c.ch));
-        let targetWritingCh = (item.currentCh && item.currentCh > maxCh)
-            ? item.currentCh
-            : (maxCh > 0 ? maxCh : 2);
-        if (chapters.length === 1 && chapters[0].ch === 1 && (!item.currentCh || item.currentCh <= 1)) {
-            targetWritingCh = 2;
-        }
+        const targetWritingCh = getRelayActiveChapter(item);
 
-        const actualCandidates = chapters.filter(c => c.ch === targetWritingCh && c.ch > 1);
+        const actualCandidates = chapters.filter(c => Number(c.ch) === targetWritingCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
         const participantStatus = `${actualCandidates.length}/5 참여중`;
         const statusLabel = isVote ? `후보 ${actualCandidates.length}개` : participantStatus;
         item.progress = participantStatus;
@@ -3468,8 +3497,8 @@ async function adminDeleteContent(contentId, type) {
     document.getElementById('integratedTitle').innerText = targetRelay.title;
 
     const latestConfirmedCh = getRelayLatestConfirmedChapter(targetRelay);
-    const targetWritingCh = getRelayCurrentTargetChapter(targetRelay);
-    const candidates = (targetRelay.chapters || []).filter(c => c.ch === targetWritingCh && c.ch > 1);
+    const targetWritingCh = getRelayActiveChapter(targetRelay);
+    const candidates = (targetRelay.chapters || []).filter(c => Number(c.ch) === targetWritingCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
     const isVoteMode = (targetRelay.phase === 'vote' || candidates.length >= 5);
 
     targetRelay.progress = `${candidates.length}/5 참여중`;
@@ -3486,9 +3515,8 @@ async function adminDeleteContent(contentId, type) {
 
     const storyBodyContainer = document.getElementById('integratedStoryBody');
     if (storyBodyContainer) {
-        storyBodyContainer.innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || targetRelay.title}]\n(작가: ${latestConfirmedCh.author || targetRelay.creatorName})\n\n${latestConfirmedCh.content}`;
+        storyBodyContainer.innerText = getRelayConfirmedStoryText(targetRelay);
     }
-
     const candidatePreviewContainer = document.getElementById('integratedCandidatePreviewContainer');
     if (candidatePreviewContainer) {
         if (candidates.length > 0) {
@@ -4634,6 +4662,8 @@ function rateArchiveBook(score) {
     alert(`⭐ ${score}점 별점이 반영되었습니다! (평균 ${avg}점)`);
     renderArchiveList();
 }
+
+
         
     </script>
 </body>
