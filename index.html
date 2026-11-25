@@ -3883,15 +3883,19 @@ async function submitWriterContentWithPiPayment() {
 
     const chapters = targetRelay.chapters || [];
     let targetWritingCh = 2;
-    const maxCh = chapters.length > 0 ? Math.max(...chapters.map(c => c.ch)) : 1;
-    const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh);
+    const maxCh = chapters.length > 0 ? Math.max(...chapters.map(c => Number(c.ch) || 1)) : 1;
+    const confirmedChapters = chapters.filter(c => c.votes > 0 || c.ch < maxCh || c.isWinner);
     if (confirmedChapters.length > 0) {
-        targetWritingCh = confirmedChapters[confirmedChapters.length - 1].ch + 1;
+        targetWritingCh = (Number(confirmedChapters[confirmedChapters.length - 1].ch) || 1) + 1;
     } else if (chapters.length > 1) {
-        targetWritingCh = chapters[chapters.length - 1].ch;
+        targetWritingCh = Number(chapters[chapters.length - 1].ch) || 2;
     }
 
-    if (chapters.some(c => c.ch === targetWritingCh && c.author === currentUserId)) {
+    // 블라인드(isBlind) 된 과거 후보작은 제외하고, 현재 살아있는 후보 중 내 글이 있을 때만 중복 차단
+    const hasActiveSubmission = chapters.some(
+        c => Number(c.ch) === targetWritingCh && c.author === currentUserId && !isCandidateBlinded(c)
+    );
+    if (hasActiveSubmission) {
         alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
         closeModal('writerModal');
         return;
