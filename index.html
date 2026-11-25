@@ -2264,17 +2264,8 @@ function processRelayLifecycle(item, now = Date.now()) {
     if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
     renderAdminContentList();
     alert(`🗑️ ${chNum}화 후보작이 DB에서 완전히 삭제되었습니다.`);
-}
 
-    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-
-    if (typeof renderRelayListContent === 'function') renderRelayListContent();
-    if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
-    renderAdminContentList();
-    alert(syncedToServer
-        ? `🗑️ ${chNum}화 후보작이 DB와 목록에서 삭제되었습니다.`
-        : `🗑️ ${chNum}화 후보작이 삭제되었습니다.`
-    );
+           
 }
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
