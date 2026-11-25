@@ -2222,7 +2222,7 @@ function processRelayLifecycle(item, now = Date.now()) {
 }
 
         async function adminDeleteCandidate(relayId, chNum) {
-    if (!confirm(`⚠️ 이 릴레이의 ${chNum}화 후보작을 삭제하시겠습니까?`)) return;
+    if (!confirm(`⚠️ 이 릴레이의 ${chNum}화 후보작을 영구 삭제하시겠습니까?`)) return;
 
     const targetRelay = relayMockList.find(r => r.id === relayId);
     if (!targetRelay) {
@@ -2230,8 +2230,21 @@ function processRelayLifecycle(item, now = Date.now()) {
         return;
     }
 
-    const prevChapters = JSON.parse(JSON.stringify(targetRelay.chapters || []));
-    const prevProgress = targetRelay.progress;
+    try {
+        const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'https://deep-blue-server.onrender.com';
+        const res = await fetch(`${baseUrl}/api/admin/relay/${encodeURIComponent(relayId)}/candidate/${Number(chNum)}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.success) {
+            alert(`❌ DB 후보작 삭제 실패: ${data.message || res.status}`);
+            return;
+        }
+    } catch (err) {
+        alert(`❌ 서버 통신 오류로 후보작을 삭제하지 못했습니다: ${err?.message || err}`);
+        return;
+    }
 
     targetRelay.chapters = (targetRelay.chapters || []).filter(
         c => !(Number(c.ch) === Number(chNum) && Number(c.ch) > 1)
@@ -2241,35 +2254,17 @@ function processRelayLifecycle(item, now = Date.now()) {
         c => Number(c.ch) === Number(chNum) && Number(c.ch) > 1 && !isCandidateBlinded(c)
     );
     targetRelay.progress = `${remainingCandidates.length}/5 참여중`;
-
-    let syncedToServer = false;
-    try {
-        const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'http://localhost:5000';
-        const res = await fetch(`${baseUrl}/api/relay/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                relayId,
-                phase: targetRelay.phase,
-                progress: targetRelay.progress,
-                isBlind: Boolean(targetRelay.isBlind),
-                chapters: targetRelay.chapters
-            })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || data.success === false) {
-            throw new Error(data.message || `서버 동기화 실패 (${res.status})`);
-        }
-        syncedToServer = true;
-    } catch (err) {
-        console.warn("⚠️ 후보작 서버 동기화 실패:", err);
-        if (!String(relayId).startsWith('card_') && !String(relayId).startsWith('c_')) {
-            targetRelay.chapters = prevChapters;
-            targetRelay.progress = prevProgress;
-            alert("⚠️ DB에서 후보작을 삭제하지 못했습니다: " + (err?.message || err));
-            return;
-        }
+    if (remainingCandidates.length < 5 && targetRelay.phase === 'vote') {
+        targetRelay.phase = 'write';
     }
+
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+
+    if (typeof renderRelayListContent === 'function') renderRelayListContent();
+    if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
+    renderAdminContentList();
+    alert(`🗑️ ${chNum}화 후보작이 DB에서 완전히 삭제되었습니다.`);
+}
 
     localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
 
