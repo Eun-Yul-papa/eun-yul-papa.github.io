@@ -2498,18 +2498,43 @@ function processRelayLifecycle(item, now = Date.now()) {
                 headerTitle.innerHTML = `✨ 팔로잉 작가 (${followingWriters.length}명)`;
             }
         }
-        function claimCreatorEarnings() {
-            if (creatorClaimablePi <= 0) {
-                alert('출금 가능한 정산 수익이 없습니다.');
-                return;
-            }
-            currentBalance += creatorClaimablePi;
-            userRewardedPi += creatorClaimablePi;
-            alert(`🎉 ${creatorClaimablePi.toFixed(1)} PI 수익이 지갑으로 출금되었습니다!`);
-            creatorClaimablePi = 0.0;
-            updateWalletDisplay();
-            renderStudioHistoryList();
+        async function claimCreatorEarnings() {
+    if (!currentUserId) {
+        alert("로그인이 필요합니다.");
+        return;
+    }
+
+    const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+        ? BACKEND_URL
+        : 'https://deep-blue-server.onrender.com';
+
+    try {
+        const res = await fetch(`${baseUrl}/api/creator/claim`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ author: currentUserId })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.success) {
+            alert(data.message || '출금 가능한 정산 수익이 없습니다.');
+            await fetchCreatorEarningsFromServer();
+            return;
         }
+
+        const claimedAmount = Number(data.claimedAmount) || 0;
+        creatorClaimablePi = Number(data.claimablePi) || 0;
+        currentBalance += claimedAmount;
+        userRewardedPi += claimedAmount;
+
+        alert(`🎉 ${claimedAmount.toFixed(1)} PI 수익이 지갑으로 출금되었습니다!`);
+        updateWalletDisplay();
+        renderStudioHistoryList();
+    } catch (error) {
+        console.error("❌ 서버 출금 처리 실패:", error);
+        alert("❌ 서버 통신 오류로 출금에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    }
+}
 
         // 💰 서버 정산 결과 반영 및 크리에이터 스튜디오 잔액 동기화
 async function fetchCreatorEarningsFromServer() {
