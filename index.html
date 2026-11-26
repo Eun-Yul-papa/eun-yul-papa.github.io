@@ -2507,6 +2507,76 @@ function processRelayLifecycle(item, now = Date.now()) {
             updateWalletDisplay();
             renderStudioHistoryList();
         }
+
+        // 💰 서버 정산 결과 반영 및 크리에이터 스튜디오 잔액 동기화
+async function fetchCreatorEarningsFromServer() {
+    if (!currentUserId) return;
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/creator/earnings/${encodeURIComponent(currentUserId)}`);
+        const data = await res.json();
+        if (res.ok && data.success) {
+            creatorClaimablePi = Number(data.claimablePi) || 0;
+            renderStudioHistoryList();
+        }
+    } catch (err) {
+        console.warn("⚠️ 정산 잔액 조회 생략(로컬 유지):", err);
+    }
+}
+
+// 🏆 릴레이 투표 마감 시 서버 정산 API 호출 (자동 마감 및 테스트 공용)
+async function settleRelayChapterWithServer(relayId, targetCh) {
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/relay/settle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ relayId, targetCh })
+        });
+        const result = await res.json();
+        if (!res.ok || !result.success) return null;
+
+        if (result.winner) {
+            const { author, chapter, prizePoolPi } = result.winner;
+            if (author === currentUserId) {
+                creatorClaimablePi += Number(prizePoolPi) || 0;
+                renderStudioHistoryList();
+            }
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (targetRelay) {
+                creatorStudioHistory.unshift({
+                    id: relayId,
+                    title: targetRelay.title,
+                    type: 'relay',
+                    status: `제 ${chapter}화 우승 (${author})`,
+                    share: `+${Number(prizePoolPi).toFixed(1)} PI`
+                });
+                renderStudioHistoryList();
+            }
+        }
+        return result;
+    } catch (err) {
+        console.error("❌ 릴레이 정산 API 호출 실패:", err);
+        return null;
+    }
+}
+
+// 🧪 내일 테스트용: 3일 안 기다리고 즉시 투표 마감 & 우승자 정산 실행하는 헬퍼
+async function forceSettleRelayNow(relayId) {
+    const targetRelay = relayMockList.find(r => r.id === relayId);
+    if (!targetRelay) {
+        alert("대상 릴레이를 찾을 수 없습니다.");
+        return;
+    }
+    const targetCh = getRelayActiveChapter(targetRelay);
+    const result = await settleRelayChapterWithServer(relayId, targetCh);
+    if (result && result.winner) {
+        alert(`🏆 제 ${result.winner.chapter}화 우승 확정!\n우승 작가: ${result.winner.author}\n정산 상금: ${result.winner.prizePoolPi.toFixed(1)} PI`);
+        await fetchRelayList();
+    } else if (result && result.noWinner) {
+        alert("ℹ️ 득표가 없어 해당 회차 집필이 재시작되었습니다.");
+        await fetchRelayList();
+    }
+}
+        
         function switchTab(tabName) {
             // 모든 섹션 숨기기
             ['home-section', 'relay-section', 'creator-section', 'archive-section'].forEach(id => {
