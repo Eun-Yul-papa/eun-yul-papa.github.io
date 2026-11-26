@@ -2449,7 +2449,7 @@ function processRelayLifecycle(item, now = Date.now()) {
 
         function navigateToActivity(section, targetId) {
             closeModal('subscriptionActivityModal');
-            closeModal('creatorStudioModal');
+            closeModal('');
             if (section === 'archive') {
                 switchTab('archive');
                 const found = archiveDataList.find(a => a.id === targetId);
@@ -2512,11 +2512,22 @@ function processRelayLifecycle(item, now = Date.now()) {
 async function fetchCreatorEarningsFromServer() {
     if (!currentUserId) return;
     try {
-        const res = await fetch(`${BACKEND_URL}/api/creator/earnings/${encodeURIComponent(currentUserId)}`);
+        const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+            ? BACKEND_URL
+            : 'https://deep-blue-server.onrender.com';
+        const res = await fetch(`${baseUrl}/api/creator/earnings/${encodeURIComponent(currentUserId)}`);
         const data = await res.json();
         if (res.ok && data.success) {
             creatorClaimablePi = Number(data.claimablePi) || 0;
-            renderStudioHistoryList();
+            const amountEl = document.getElementById('creatorClaimableAmount')
+                || document.getElementById('studioClaimablePi')
+                || document.getElementById('claimablePiDisplay');
+            if (amountEl) {
+                amountEl.innerText = `${creatorClaimablePi.toFixed(1)} PI`;
+            }
+            if (typeof renderStudioHistoryList === 'function') {
+                renderStudioHistoryList();
+            }
         }
     } catch (err) {
         console.warn("⚠️ 정산 잔액 조회 생략(로컬 유지):", err);
@@ -2574,6 +2585,8 @@ async function forceSettleRelayNow(relayId) {
     } else if (result && result.noWinner) {
         alert("ℹ️ 득표가 없어 해당 회차 집필이 재시작되었습니다.");
         await fetchRelayList();
+        if (typeof renderRelayListContent === 'function') renderRelayListContent();
+        if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();        
     }
 }
         
@@ -3894,7 +3907,7 @@ async function adminDeleteContent(contentId, type) {
             // 💡 로컬스토리지에 즉시 영구 반영
             localStorage.setItem('deep_blue_relay_drafts', JSON.stringify(relayDrafts));
 
-            alert("💾 원고가 영구 임시저장되었습니다.\n[크리에이터 스튜디오]에서 언제든 불러올 수 있습니다.");
+            alert("💾 원고가 임시저장되었습니다.\n[크리에이터 스튜디오]에서 언제든 불러올 수 있습니다.");
             closeModal('writerModal');
             renderStudioHistoryList();
         }
