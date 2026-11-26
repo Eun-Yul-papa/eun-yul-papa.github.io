@@ -2030,36 +2030,37 @@ function processRelayLifecycle(item, now = Date.now()) {
     updateRelayHubBadges();
 }
         async function fetchCreatorList() {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 1500);
-                const response = await fetch('http://localhost:5000/api/creator/list', { signal: controller.signal });
-                clearTimeout(timeoutId);
-                const result = await response.json();
-                if (result.success && result.data) {
-                    creatorMockList = result.data.map(item => ({
-                        id: item._id,
-                        title: item.title,
-                        format: item.format || '장편',
-                        nation: item.nation || 'KR',
-                        currentCh: item.currentCh || 1,
-                        author: item.author || 'wnalsdud88',
-                        desc: item.desc || '',
-                        isBlind: false
-                    }));
-                }
-            } catch (error) {
-                let savedLocalCreators = JSON.parse(localStorage.getItem('saved_creator_list'));
-                if (!savedLocalCreators) {
-                    savedLocalCreators = [];
-                }
-                creatorMockList = savedLocalCreators;
-            }
-            
-            localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
-            renderCreatorListViewContent();
-            updateCreatorHubBadges();
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+            ? BACKEND_URL
+            : 'https://deep-blue-server.onrender.com';
+
+        const response = await fetch(`${baseUrl}/api/creator/list`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const result = await response.json();
+        if (result.success && Array.isArray(result.data)) {
+            creatorMockList = result.data.map(item => ({
+                id: item._id || item.id,
+                title: item.title,
+                format: item.format || '장편',
+                nation: item.nation || 'KR',
+                currentCh: item.currentCh || 1,
+                author: item.author || 'wnalsdud88',
+                desc: item.desc || '',
+                isBlind: false
+            }));
         }
+    } catch (error) {
+        const savedLocalCreators = JSON.parse(localStorage.getItem('saved_creator_list')) || [];
+        creatorMockList = savedLocalCreators;
+    }
+
+    localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
+    renderCreatorListViewContent();
+    updateCreatorHubBadges();
+}
         async function createNewCreatorCard() {
             const title = document.getElementById('inputCreatorTitle').value.trim() || "무제 작품";
             const subtitle = document.getElementById('inputCreatorSubtitle').value.trim() || "제 1화";
@@ -2084,7 +2085,10 @@ function processRelayLifecycle(item, now = Date.now()) {
             };
 
             try {
-                await fetch('http://localhost:5000/api/creator/create', {
+                const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+                    ? BACKEND_URL
+                    : 'https://deep-blue-server.onrender.com';
+                await fetch(`${baseUrl}/api/creator/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, desc: content, nation: nationCode })
@@ -2246,8 +2250,10 @@ function processRelayLifecycle(item, now = Date.now()) {
     }
 
     try {
-        const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'https://deep-blue-server.onrender.com';
-        const res = await fetch(`${baseUrl}/api/admin/relay/${encodeURIComponent(relayId)}/candidate/${Number(chNum)}`, {
+        const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+            ? BACKEND_URL
+            : 'https://deep-blue-server.onrender.com';
+        await fetch(`${baseUrl}/api/admin/content/${contentId}`, {
             method: 'DELETE'
         });
         const data = await res.json().catch(() => ({}));
@@ -3497,7 +3503,9 @@ async function adminDeleteContent(contentId, type) {
             throw new Error("Local ID - skip backend API");
         }
 
-        const baseUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : 'http://localhost:5000';
+        const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+            ? BACKEND_URL
+            : 'https://deep-blue-server.onrender.com';
         await fetch(`${baseUrl}/api/admin/content/${contentId}`, {
             method: 'DELETE'
         });
