@@ -550,6 +550,21 @@ div[id$="-card-container"] p {
 #relayListViewContainer, #creatorListViewContainer, #archiveListViewContainer {
     display: none;
 }
+
+.alarm-btn-drawer {
+    position: relative;
+}
+.alarm-btn-drawer.has-unread::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.9);
+}
     </style>
 </head>
 
@@ -2266,6 +2281,26 @@ function processRelayLifecycle(item, now = Date.now()) {
     alert(`🗑️ ${chNum}화 후보작이 DB에서 완전히 삭제되었습니다.`);
            
 }
+
+        async function refreshUnreadAlarmBadge() {
+    const alarmBtn = document.querySelector('.alarm-btn-drawer');
+    if (!alarmBtn || !currentUserId) return;
+
+    try {
+        const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+            ? BACKEND_URL
+            : 'https://deep-blue-server.onrender.com';
+        const res = await fetch(`${baseUrl}/api/notifications/${encodeURIComponent(currentUserId)}`);
+        const result = await res.json().catch(() => ({}));
+        if (res.ok && result.success && Array.isArray(result.data)) {
+            const hasUnread = result.data.some(n => !n.read);
+            alarmBtn.classList.toggle('has-unread', hasUnread);
+        }
+    } catch (err) {
+        console.warn("⚠️ 미확인 알림 배지 조회 실패:", err);
+    }
+}
+        
         // ==========================================
         // 기본 생명주기 및 UI 제어 함수군
         // ==========================================
@@ -2355,10 +2390,43 @@ function processRelayLifecycle(item, now = Date.now()) {
     openModal(modalId);
 }
         
-        function openAlarmModal() { 
-            renderAlarmList();
-            openModal('alarmModal'); 
+async function openAlarmModal() {
+    if (currentUserId) {
+        try {
+            const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+                ? BACKEND_URL
+                : 'https://deep-blue-server.onrender.com';
+            const res = await fetch(`${baseUrl}/api/notifications/${encodeURIComponent(currentUserId)}`);
+            const result = await res.json().catch(() => ({}));
+            if (res.ok && result.success && Array.isArray(result.data)) {
+                alarmList = result.data.map(n => ({
+                    title: n.title,
+                    desc: n.desc,
+                    createdAt: n.createdAt
+                }));
+            }
+        } catch (err) {
+            console.warn("⚠️ 서버 알림 조회 실패, 로컬 알림으로 표시합니다:", err);
         }
+    }
+
+    renderAlarmList();
+    openModal('alarmModal');
+
+    const alarmBtn = document.querySelector('.alarm-btn-drawer');
+    if (alarmBtn) alarmBtn.classList.remove('has-unread');
+
+    if (currentUserId) {
+        const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+            ? BACKEND_URL
+            : 'https://deep-blue-server.onrender.com';
+        fetch(`${baseUrl}/api/notifications/read`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUserId })
+        }).catch(() => {});
+    }
+}
         function toggleModalAccordion(accordionId) {
             const content = document.getElementById(accordionId);
             const arrow = document.getElementById(accordionId.replace('Accordion', 'Arrow'));
