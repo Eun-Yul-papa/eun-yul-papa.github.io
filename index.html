@@ -3901,20 +3901,40 @@ async function adminDeleteContent(contentId, type) {
         
         // 📝 임시저장된 원고를 다시 작업실로 불러오기
         function loadDraftToWriter(draftIdx) {
-            const draft = relayDrafts[draftIdx];
-            if (!draft) return;
+    const draft = relayDrafts[draftIdx];
+    if (!draft) return;
 
-            closeModal('creatorStudioModal');
-            document.getElementById('activeRelayId').value = draft.relayId;
-            document.getElementById('writerSubtitleInput').value = draft.subtitle;
-            document.getElementById('writerInputContent').value = draft.content;
-            
-            const textarea = document.getElementById('writerInputContent');
-            if (textarea) handleByteCheckRelay(textarea, 'writer-byte-count', 'btn-submit-write');
+    closeModal('creatorStudioModal');
 
-            openModal('writerModal');
-            alert("📝 임시저장된 원고를 불러왔습니다.");
+    const targetRelay = relayMockList.find(r => r.id === draft.relayId);
+    if (targetRelay) {
+        const chapters = targetRelay.chapters || [];
+        const latestConfirmedCh = getRelayLatestConfirmedChapter(targetRelay);
+        const targetWritingCh = getRelayActiveChapter(targetRelay);
+
+        document.getElementById('activeRelayId').value = targetRelay.id;
+        document.getElementById('writerFlag').innerText = targetRelay.nation || 'KR';
+        document.getElementById('writerTitle').innerText = `${targetRelay.title} - 제 ${targetWritingCh}화 이어쓰기`;
+
+        const bodyEl = document.getElementById('writerBody');
+        if (bodyEl && latestConfirmedCh) {
+            bodyEl.innerText = `[제 ${latestConfirmedCh.ch}화 : ${latestConfirmedCh.title || targetRelay.title}]\n\n${latestConfirmedCh.content}`;
         }
+    } else {
+        document.getElementById('activeRelayId').value = draft.relayId || '';
+    }
+
+    document.getElementById('writerSubtitleInput').value = draft.subtitle || '';
+    document.getElementById('writerInputContent').value = draft.content || '';
+
+    const textarea = document.getElementById('writerInputContent');
+    if (textarea && typeof handleByteCheckRelay === 'function') {
+        handleByteCheckRelay(textarea, 'writer-byte-count', 'btn-submit-write');
+    }
+
+    openModal('writerModal');
+    alert("📝 임시저장된 원고를 불러왔습니다.");
+}
 
         function updateCreatorLengthGuideText() {
     const lengthSelect = document.getElementById('selectCreatorLength');
