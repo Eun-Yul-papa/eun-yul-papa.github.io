@@ -2344,12 +2344,15 @@ function processRelayLifecycle(item, now = Date.now()) {
             document.getElementById('sideDrawer').classList.remove('active');
         }
 
-        function openNavModal(modalId) { 
-    closeDrawer(); 
+        function openNavModal(modalId) {
+    closeDrawer();
     if (modalId === 'freeBoardModal') {
         renderFreeBoardList(); // 자유게시판을 열 때 게시글 목록을 먼저 그려줌
     }
-    openModal(modalId); 
+    if (modalId === 'creatorStudioModal' && typeof fetchCreatorEarningsFromServer === 'function') {
+        fetchCreatorEarningsFromServer();
+    }
+    openModal(modalId);
 }
         
         function openAlarmModal() { 
@@ -2519,11 +2522,9 @@ async function fetchCreatorEarningsFromServer() {
         const data = await res.json();
         if (res.ok && data.success) {
             creatorClaimablePi = Number(data.claimablePi) || 0;
-            const amountEl = document.getElementById('creatorClaimableAmount')
-                || document.getElementById('studioClaimablePi')
-                || document.getElementById('claimablePiDisplay');
-            if (amountEl) {
-                amountEl.innerText = `${creatorClaimablePi.toFixed(1)} PI`;
+            const balanceEl = document.getElementById('studioClaimableBalance');
+            if (balanceEl) {
+                balanceEl.innerText = `${creatorClaimablePi.toFixed(1)} PI`;
             }
             if (typeof renderStudioHistoryList === 'function') {
                 renderStudioHistoryList();
@@ -2582,11 +2583,13 @@ async function forceSettleRelayNow(relayId) {
     if (result && result.winner) {
         alert(`🏆 제 ${result.winner.chapter}화 우승 확정!\n우승 작가: ${result.winner.author}\n정산 상금: ${result.winner.prizePoolPi.toFixed(1)} PI`);
         await fetchRelayList();
+        if (typeof renderRelayListContent === 'function') renderRelayListContent();
+        if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
     } else if (result && result.noWinner) {
         alert("ℹ️ 득표가 없어 해당 회차 집필이 재시작되었습니다.");
         await fetchRelayList();
         if (typeof renderRelayListContent === 'function') renderRelayListContent();
-        if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();        
+        if (typeof updateRelayHubBadges === 'function') updateRelayHubBadges();
     }
 }
         
