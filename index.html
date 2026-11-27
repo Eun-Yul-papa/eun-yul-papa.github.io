@@ -1917,6 +1917,44 @@ function processRelayLifecycle(item, now = Date.now()) {
             container.innerHTML = html;
         }
 
+    let relayCountdownTimer = null;
+
+function formatRemainingTime(deadlineAt) {
+    if (!deadlineAt) return '마감 미정';
+    const diffMs = new Date(deadlineAt).getTime() - Date.now();
+    if (diffMs <= 0) return '00일 00:00:00 (마감)';
+
+    const totalSec = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(days)}일 ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+}
+
+function startRelayCountdown(elementId, deadlineAt, onExpire) {
+    if (relayCountdownTimer) {
+        clearInterval(relayCountdownTimer);
+        relayCountdownTimer = null;
+    }
+
+    const tick = () => {
+        const el = document.getElementById(elementId);
+        const text = formatRemainingTime(deadlineAt);
+        if (el) el.textContent = text;
+
+        if (deadlineAt && new Date(deadlineAt).getTime() <= Date.now()) {
+            clearInterval(relayCountdownTimer);
+            relayCountdownTimer = null;
+            if (typeof onExpire === 'function') onExpire();
+        }
+    };
+
+    tick();
+    relayCountdownTimer = setInterval(tick, 1000);
+}
         
         
         // ==========================================
