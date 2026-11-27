@@ -699,7 +699,7 @@ div[id$="-card-container"] p {
                     <div style="font-size: 0.88rem; color: var(--text-bright); line-height: 1.7;">
                         스토리 릴레이는 독자와 작가가 집단지성을 모아 하나의 완결작을 만들어가는 웹3 창작 공간입니다.<br>
                         • <b>0단계 (스토리 개설)</b>: 누구나 첫 스토리 개설 (0 PI 무료)<br>
-                        • <b>1단계 (집필 경쟁 - 5일)</b>: 회차당 최대 5명 작가 경쟁 (보증금 1.0 PI)<br>
+                        • <b>1단계 (집필 경쟁 - 5일)</b>: 회차당 최대 10명 작가 경쟁 (보증금 1.0 PI)<br>
                         • <b>2단계 (열람 & 투표 - 3일)</b>: 모든 독자 자유로운 열람 및 투표 (무료)<br>
                         • <b>3단계 (우승 정산)</b>: 채택 작가 보증금 풀 전액(100%) 획득! 완결 시 지분 자동 분배.
                     </div>
@@ -1408,7 +1408,7 @@ div[id$="-card-container"] p {
                     <span class="flag-badge" id="integratedFlag">🇰🇷</span>
                     <div class="modal-title" id="integratedTitle">스토리 릴레이 상세정보</div>
                 </div>
-                <button class="close-btn" onclick="closeModal('integratedRelayModal')">✕</button>
+                <button class="close-btn" onclick="closeRelayDetailModal()">✕</button>
             </div>
             
             <!-- 1. 직전까지 채택된 본문 출력 영역 -->
@@ -1417,12 +1417,36 @@ div[id$="-card-container"] p {
             <!-- 2. 현재 경쟁 중인 참여자 글 목록 (소제목 + 작가명) 출력 영역 -->
             <div id="integratedCandidatePreviewContainer" style="margin-bottom: 14px;"></div>
             
-            <!-- 3. 하단 액션 버튼 영역 (이어쓰기 참여 / 투표 버튼 동적 생성) -->
+            <!-- 3. 하단 액션 버튼 영역 (이어쓰기 참가하기 1.0 PI / 투표 버튼 동적 생성) -->
             <div class="button-group" style="flex-direction: column;" id="integratedButtonContainer"></div>
+
+            <!-- 3-1. 슬롯 확보 후 열리는 작성 창 (임시저장 / 제출하기) -->
+            <div id="integratedInlineEditor" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-glow);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 0.85rem; font-weight: 800; color: var(--success-green);">✍️ 이어쓰기 작성 창 (슬롯 확보됨)</span>
+                    <span id="integratedCountdownText" style="font-size: 0.78rem; color: var(--warning-orange); font-weight: 700;">⏳ 남은 시간: 계산 중...</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Chapter Subtitle (이번 회차 소제목)</label>
+                    <input type="text" class="form-control" id="inlineWriterSubtitle" placeholder="회차 소제목을 입력하세요...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">본문 작성</label>
+                    <textarea class="form-control" id="inlineWriterContent" oninput="handleByteCheckRelay(this, 'inline-writer-byte', 'btn-inline-submit')" placeholder="이어질 이야기를 작성하세요..."></textarea>
+                    <div class="byte-counter-info">
+                        <span class="guide-text">1,500~6,000 바이트 사이로 작성해주세요.</span>
+                        <span class="byte-status" id="inline-writer-byte">0 / 6000 Bytes</span>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="saveInlineRelayDraft()">💾 임시저장</button>
+                    <button type="button" class="btn btn-primary" id="btn-inline-submit" style="flex: 1;" disabled onclick="submitInlineRelayDraft()">🚀 제출하기</button>
+                </div>
+            </div>
             
             <!-- 고정 하단 버튼 (중복 제거 완료) -->
             <button class="btn btn-outline" style="margin-top: 8px;" onclick="openPrevChaptersModal()">📖 이전까지 스토리 보기</button>
-            <button class="btn btn-outline" style="margin-top: 8px;" onclick="closeModal('integratedRelayModal')">닫기</button>
+            <button class="btn btn-outline" style="margin-top: 8px;" onclick="closeRelayDetailModal()">닫기</button>
         </div>
     </div>
 
@@ -1857,7 +1881,7 @@ function processRelayLifecycle(item, now = Date.now()) {
                 item.currentCh = currentTargetCh;
                 item.writeStartedAt = now;
                 item.voteStartedAt = null;
-                item.progress = '0/5 참여중';
+                item.progress = '0/10 참여중';
                 changed = true;
             } else {
                 let winner = currentCandidates[0];
@@ -1887,7 +1911,7 @@ function processRelayLifecycle(item, now = Date.now()) {
                     item.currentCh = nextCh;
                     item.writeStartedAt = now;
                     item.voteStartedAt = null;
-                    item.progress = '0/5 참여중';
+                    item.progress = '0/10 참여중';
                 }
                 changed = true;
             }
@@ -2025,7 +2049,7 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
                     subtitle: item.subtitle || '',
                     nation: item.nation || 'KR',
                     format: item.format || '소설',
-                    progress: item.progress || (found && found.progress) || '0/5 참여중',
+                    progress: item.progress || (found && found.progress) || '0/10 참여중',
                     phase,
                     currentCh: computedCurrentCh,
                     createdAt: item.createdAt ? new Date(item.createdAt).getTime() : (found ? found.createdAt : Date.now()),
@@ -2035,6 +2059,9 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
                     creatorName: item.creatorName || currentUserId || 'Pioneer',
                     isBlind: Boolean(item.isBlind) || itemReportCount >= 20,
                     reportCount: itemReportCount,
+                    maxSlots: Number(item.maxSlots) || 10,
+                    deadlineAt: item.deadlineAt || null,
+                    slots: Array.isArray(item.slots) ? item.slots : [],
                     chapters: normalizedChapters
                 };
             });
@@ -2047,7 +2074,7 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
                 title: '심해의 첫 번째 이야기',
                 nation: 'KR',
                 format: '소설 / 단편',
-                progress: '0/5 참여중',
+                progress: '0/10 참여중',
                 phase: 'write',
                 currentCh: 2,
                 createdAt: Date.now(),
@@ -2234,7 +2261,7 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
         subtitle,
         nation: nationCode,
         format: `${format} / ${lengthType}`,
-        progress: '0/5 참여중',
+        progress: '0/10 참여중',
         phase: 'write',
         currentCh: 1,
         createdAt: createdAtTs,
@@ -2309,11 +2336,16 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
         c => !(Number(c.ch) === Number(chNum) && Number(c.ch) > 1)
     );
 
+    const maxSlots = Number(targetRelay.maxSlots) || MAX_RELAY_SLOTS;
     const remainingCandidates = targetRelay.chapters.filter(
         c => Number(c.ch) === Number(chNum) && Number(c.ch) > 1 && !isCandidateBlinded(c)
     );
-    targetRelay.progress = `${remainingCandidates.length}/5 참여중`;
-    if (remainingCandidates.length < 5 && targetRelay.phase === 'vote') {
+    const remainingSlots = Array.isArray(targetRelay.slots)
+        ? targetRelay.slots.filter(s => Number(s.ch) === Number(chNum)).length
+        : 0;
+    const remainingCount = Math.max(remainingCandidates.length, remainingSlots);
+    targetRelay.progress = `${remainingCount}/${maxSlots} 참여중`;
+    if (remainingCount < maxSlots && targetRelay.phase === 'vote') {
         targetRelay.phase = 'write';
     }
 
@@ -2789,9 +2821,16 @@ async function forceSettleRelayNow(relayId) {
                 : '투표 가능한 릴레이 후보 글목록';
             setDefaultListViewMode('relay');
             renderRelayListContent();
+            if (window.relayListTickTimer) clearInterval(window.relayListTickTimer);
+            window.relayListTickTimer = setInterval(() => {
+                if (document.getElementById('relayListViewContainer')?.style.display !== 'none') {
+                    renderRelayListContent();
+                }
+            }, 1000);
         }
 
         function backToRelayHub() {
+            if (window.relayListTickTimer) { clearInterval(window.relayListTickTimer); window.relayListTickTimer = null; }
             currentRelayHubMode = 'write';
             document.getElementById('relayListViewContainer').style.display = 'none';
             document.getElementById('relayHubView').style.display = 'flex';
@@ -2914,7 +2953,7 @@ async function forceSettleRelayNow(relayId) {
                 item.currentCh = targetCh;
                 item.writeStartedAt = now;
                 item.voteStartedAt = null;
-                item.progress = '0/5 참여중';
+                item.progress = '0/10 참여중';
                 changed = true;
             } else {
                 let winner = candidates[0];
@@ -2944,7 +2983,7 @@ async function forceSettleRelayNow(relayId) {
                     item.currentCh = nextCh;
                     item.writeStartedAt = now;
                     item.voteStartedAt = null;
-                    item.progress = '0/5 참여중';
+                    item.progress = '0/10 참여중';
                 }
                 changed = true;
             }
@@ -2999,7 +3038,7 @@ function renderRelayListContent() {
         const timerBaseTime = isVote
             ? (item.voteStartedAt || item.createdAt || now)
             : (item.writeStartedAt || item.createdAt || now);
-        const timerInfo = calculateRemainingTime(timerBaseTime, isVote);
+        const timerInfo = { text: formatSecondsCountdown(getRelayDeadlineTimestamp(item)) };
 
         const chapters = item.chapters || [{
             ch: 1,
@@ -3012,7 +3051,9 @@ function renderRelayListContent() {
         const targetWritingCh = getRelayActiveChapter(item);
 
         const actualCandidates = chapters.filter(c => Number(c.ch) === targetWritingCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
-        const participantStatus = `${actualCandidates.length}/5 참여중`;
+        const reservedSlotCount = Array.isArray(item.slots) ? item.slots.filter(s => Number(s.ch) === targetWritingCh).length : 0;
+        const currentParticipants = Math.max(actualCandidates.length, reservedSlotCount);
+        const participantStatus = `${currentParticipants}/${MAX_RELAY_SLOTS} 참여중`;
         const statusLabel = isVote ? `후보 ${actualCandidates.length}개` : participantStatus;
         item.progress = participantStatus;
 
@@ -3707,6 +3748,306 @@ async function adminDeleteContent(contentId, type) {
             }
         }
 
+        const MAX_RELAY_SLOTS = 10;
+        let liveRelayInterval = null;
+
+        function getRelayDeadlineTimestamp(item) {
+            if (!item) return Date.now() + 5 * 24 * 60 * 60 * 1000;
+            if (item.deadlineAt) return new Date(item.deadlineAt).getTime();
+            const isVote = item.phase === 'vote';
+            const base = isVote
+                ? (item.voteStartedAt || item.createdAt || Date.now())
+                : (item.writeStartedAt || item.createdAt || Date.now());
+            const durationMs = isVote ? (3 * 24 * 60 * 60 * 1000) : (5 * 24 * 60 * 60 * 1000);
+            return base + durationMs;
+        }
+
+        function formatSecondsCountdown(deadlineTs) {
+            const diffSec = Math.max(0, Math.floor((deadlineTs - Date.now()) / 1000));
+            const days = Math.floor(diffSec / 86400);
+            const hours = Math.floor((diffSec % 86400) / 3600);
+            const mins = Math.floor((diffSec % 3600) / 60);
+            const secs = diffSec % 60;
+            const pad = n => String(n).padStart(2, '0');
+            return `${pad(days)}일 ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+        }
+
+        function startLiveCountdownUpdater(relayId) {
+            if (liveRelayInterval) {
+                clearInterval(liveRelayInterval);
+                liveRelayInterval = null;
+            }
+            if (relayCountdownTimer) {
+                clearInterval(relayCountdownTimer);
+                relayCountdownTimer = null;
+            }
+
+            const updateTick = () => {
+                const targetRelay = relayMockList.find(r => r.id === relayId);
+                if (!targetRelay) return;
+                const text = formatSecondsCountdown(getRelayDeadlineTimestamp(targetRelay));
+
+                const inlineTimerEl = document.getElementById('integratedCountdownText');
+                if (inlineTimerEl) inlineTimerEl.innerText = `⏳ 남은 시간: ${text}`;
+
+                const modalTimerEl = document.getElementById('writerModalTimer');
+                if (modalTimerEl) modalTimerEl.innerText = `⏳ 마감: ${text}`;
+
+                const phaseNoticeEl = document.getElementById('integratedPhaseNotice');
+                if (phaseNoticeEl && phaseNoticeEl.dataset.baseText) {
+                    phaseNoticeEl.innerText = `${phaseNoticeEl.dataset.baseText} · ⏳ ${text}`;
+                }
+            };
+
+            updateTick();
+            liveRelayInterval = setInterval(updateTick, 1000);
+        }
+
+        function closeRelayDetailModal() {
+            if (liveRelayInterval) {
+                clearInterval(liveRelayInterval);
+                liveRelayInterval = null;
+            }
+            if (relayCountdownTimer) {
+                clearInterval(relayCountdownTimer);
+                relayCountdownTimer = null;
+            }
+            closeModal('integratedRelayModal');
+        }
+
+        function getRelaySlotKey(relayId, chNum, userId) {
+            return `relay_slot_${relayId}_ch${chNum}_${userId}`;
+        }
+
+        function getRelayDraftKey(relayId, chNum, userId) {
+            return `relay_draft_${relayId}_ch${chNum}_${userId}`;
+        }
+
+        function hasReservedRelaySlot(targetRelay, targetCh) {
+            const localReserved = Boolean(localStorage.getItem(getRelaySlotKey(targetRelay.id, targetCh, currentUserId)));
+            const serverReserved = Array.isArray(targetRelay.slots) &&
+                targetRelay.slots.some(s => Number(s.ch) === Number(targetCh) && s.author === currentUserId);
+            const submittedAlready = (targetRelay.chapters || []).some(
+                c => Number(c.ch) === Number(targetCh) && c.author === currentUserId && !isCandidateBlinded(c)
+            );
+            return localReserved || serverReserved || submittedAlready;
+        }
+
+        function openInlineWriterWithDraft(targetRelay, targetCh) {
+            const editorBox = document.getElementById('integratedInlineEditor');
+            const subInput = document.getElementById('inlineWriterSubtitle');
+            const bodyInput = document.getElementById('inlineWriterContent');
+            if (!editorBox || !subInput || !bodyInput) return;
+
+            editorBox.style.display = 'block';
+
+            const savedDraftRaw = localStorage.getItem(getRelayDraftKey(targetRelay.id, targetCh, currentUserId));
+            const slotObj = Array.isArray(targetRelay.slots)
+                ? targetRelay.slots.find(s => Number(s.ch) === Number(targetCh) && s.author === currentUserId)
+                : null;
+
+            if (savedDraftRaw) {
+                try {
+                    const parsed = JSON.parse(savedDraftRaw);
+                    subInput.value = parsed.subtitle || '';
+                    bodyInput.value = parsed.content || '';
+                } catch (e) {}
+            } else if (slotObj && (slotObj.draftSubtitle || slotObj.draftContent)) {
+                subInput.value = slotObj.draftSubtitle || '';
+                bodyInput.value = slotObj.draftContent || '';
+            } else {
+                subInput.value = '';
+                bodyInput.value = '';
+            }
+
+            handleByteCheckRelay(bodyInput, 'inline-writer-byte', 'btn-inline-submit');
+        }
+
+        async function joinRelaySlotWithPayment(relayId) {
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) return;
+
+            const targetCh = getRelayActiveChapter(targetRelay);
+            const maxSlots = Number(targetRelay.maxSlots) || MAX_RELAY_SLOTS;
+            const activeCandidates = (targetRelay.chapters || []).filter(
+                c => Number(c.ch) === targetCh && Number(c.ch) > 1 && !isCandidateBlinded(c)
+            );
+            const reservedSlots = Array.isArray(targetRelay.slots)
+                ? targetRelay.slots.filter(s => Number(s.ch) === targetCh)
+                : [];
+            const currentCount = Math.max(activeCandidates.length, reservedSlots.length);
+
+            if (currentCount >= maxSlots) {
+                alert(`⚠️ 이미 최대 정원(${maxSlots}명)이 마감되었습니다.`);
+                return;
+            }
+
+            await createPiU2APayment({
+                amount: 1.0,
+                memo: `Deep Blue Sea - ${targetRelay.title} 제 ${targetCh}화 참가 슬롯 (1.0 PI)`,
+                metadata: { relayId, chapter: targetCh, type: 'relay_slot_reserve' },
+                onPaymentSuccess: async (_, paymentInfo) => {
+                    try {
+                        await fetch(`${BACKEND_URL}/api/relay/join`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                relayId,
+                                ch: targetCh,
+                                author: currentUserId || 'Pioneer',
+                                paymentId: paymentInfo?.paymentId || ''
+                            })
+                        });
+                    } catch (err) {
+                        console.warn('슬롯 선점 서버 동기화 보류:', err);
+                    }
+
+                    localStorage.setItem(getRelaySlotKey(relayId, targetCh, currentUserId), 'true');
+                    targetRelay.slots = targetRelay.slots || [];
+                    if (!targetRelay.slots.some(s => Number(s.ch) === targetCh && s.author === currentUserId)) {
+                        targetRelay.slots.push({ ch: targetCh, author: currentUserId, status: 'reserved' });
+                    }
+
+                    const updatedCount = Math.max(
+                        activeCandidates.length,
+                        targetRelay.slots.filter(s => Number(s.ch) === targetCh).length
+                    );
+                    targetRelay.progress = `${updatedCount}/${maxSlots} 참여중`;
+                    if (updatedCount >= maxSlots) {
+                        targetRelay.phase = 'vote';
+                        targetRelay.voteStartedAt = Date.now();
+                    }
+
+                    userSpentPi += 1.0;
+                    currentBalance -= 1.0;
+                    updateWalletDisplay();
+                    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+
+                    alert(`✅ 1.0 PI 결제 및 슬롯 확보 완료! (${updatedCount}/${maxSlots}명 참여 중) 이제 글을 작성해 주세요.`);
+                    handleListCardClick(relayId);
+                    renderRelayListContent();
+                }
+            });
+        }
+
+        async function saveInlineRelayDraft() {
+            const relayId = document.getElementById('activeRelayId').value;
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) return;
+
+            const targetCh = getRelayActiveChapter(targetRelay);
+            const subtitle = document.getElementById('inlineWriterSubtitle')?.value.trim() || '';
+            const content = document.getElementById('inlineWriterContent')?.value || '';
+
+            if (!content.trim()) {
+                alert('임시저장할 본문 내용을 입력해주세요.');
+                return;
+            }
+
+            localStorage.setItem(getRelayDraftKey(relayId, targetCh, currentUserId), JSON.stringify({
+                relayId,
+                ch: targetCh,
+                subtitle,
+                content,
+                updatedAt: Date.now()
+            }));
+
+            try {
+                await fetch(`${BACKEND_URL}/api/relay/draft`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        relayId,
+                        ch: targetCh,
+                        author: currentUserId || 'Pioneer',
+                        subtitle,
+                        content
+                    })
+                });
+            } catch (err) {
+                console.warn('임시저장 서버 동기화 보류:', err);
+            }
+
+            alert('💾 임시저장되었습니다! 창을 닫았다가 다시 들어와도 이어서 쓸 수 있어요.');
+        }
+
+        async function submitInlineRelayDraft() {
+            const relayId = document.getElementById('activeRelayId').value;
+            const targetRelay = relayMockList.find(r => r.id === relayId);
+            if (!targetRelay) return;
+
+            const targetCh = getRelayActiveChapter(targetRelay);
+            const maxSlots = Number(targetRelay.maxSlots) || MAX_RELAY_SLOTS;
+            const subtitle = document.getElementById('inlineWriterSubtitle')?.value.trim() || '이어지는 이야기';
+            const content = document.getElementById('inlineWriterContent')?.value.trim() || '';
+
+            if (!content) {
+                alert('제출할 본문 내용을 입력해주세요.');
+                return;
+            }
+
+            try {
+                await fetch(`${BACKEND_URL}/api/relay/submit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        relayId,
+                        ch: targetCh,
+                        subtitle,
+                        author: currentUserId || 'Pioneer',
+                        content
+                    })
+                });
+            } catch (err) {
+                console.warn('제출 서버 동기화 보류:', err);
+            }
+
+            targetRelay.chapters = targetRelay.chapters || [];
+            const existingIdx = targetRelay.chapters.findIndex(
+                c => Number(c.ch) === targetCh && c.author === currentUserId && !isCandidateBlinded(c)
+            );
+            if (existingIdx >= 0) {
+                targetRelay.chapters[existingIdx].title = subtitle;
+                targetRelay.chapters[existingIdx].content = content;
+            } else {
+                targetRelay.chapters.push({
+                    ch: targetCh,
+                    title: subtitle,
+                    author: currentUserId || 'Pioneer',
+                    content,
+                    votes: 0
+                });
+            }
+
+            const candidatesCount = targetRelay.chapters.filter(
+                c => Number(c.ch) === targetCh && Number(c.ch) > 1 && !isCandidateBlinded(c)
+            ).length;
+            const slotsCount = Array.isArray(targetRelay.slots)
+                ? targetRelay.slots.filter(s => Number(s.ch) === targetCh).length
+                : 0;
+            const totalParticipants = Math.max(candidatesCount, slotsCount);
+            targetRelay.progress = `${totalParticipants}/${maxSlots} 참여중`;
+
+            localStorage.removeItem(getRelayDraftKey(relayId, targetCh, currentUserId));
+            localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
+
+            if (!creatorStudioHistory.some(h => h.id === relayId && h.ch === targetCh)) {
+                creatorStudioHistory.unshift({
+                    id: relayId,
+                    title: targetRelay.title,
+                    type: 'relay',
+                    status: `제 ${targetCh}화 제출완료`,
+                    share: '지분산정중',
+                    ch: targetCh
+                });
+                renderStudioHistoryList();
+            }
+
+            alert(`🚀 제 ${targetCh}화 후보작이 제출되었습니다!`);
+            handleListCardClick(relayId);
+            renderRelayListContent();
+        }
+
         function handleListCardClick(relayId) {
     const targetRelay = relayMockList.find(r => r.id === relayId);
     if (!targetRelay) {
@@ -3718,25 +4059,29 @@ async function adminDeleteContent(contentId, type) {
         localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
     }
 
+    const maxSlots = Number(targetRelay.maxSlots) || MAX_RELAY_SLOTS;
     document.getElementById('activeRelayId').value = targetRelay.id;
     document.getElementById('integratedFlag').innerText = targetRelay.nation || 'KR';
     document.getElementById('integratedTitle').innerText = targetRelay.title;
 
-    const latestConfirmedCh = getRelayLatestConfirmedChapter(targetRelay);
     const targetWritingCh = getRelayActiveChapter(targetRelay);
     const candidates = (targetRelay.chapters || []).filter(c => Number(c.ch) === targetWritingCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
-    const isVoteMode = (targetRelay.phase === 'vote' || candidates.length >= 5);
+    const reservedCount = Array.isArray(targetRelay.slots)
+        ? targetRelay.slots.filter(s => Number(s.ch) === targetWritingCh).length
+        : 0;
+    const currentParticipants = Math.max(candidates.length, reservedCount);
+    const isVoteMode = (targetRelay.phase === 'vote' || currentParticipants >= maxSlots);
 
-    targetRelay.progress = `${candidates.length}/5 참여중`;
+    targetRelay.progress = `${currentParticipants}/${maxSlots} 참여중`;
     localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
 
     const phaseNotice = document.getElementById('integratedPhaseNotice');
     if (phaseNotice) {
-        if (isVoteMode) {
-            phaseNotice.innerHTML = `🗳️ [제 ${targetWritingCh}화 후보작 투표 진행 중] (투표 기간: 3일)`;
-        } else {
-            phaseNotice.innerHTML = `✍️ [제 ${targetWritingCh}화 이어쓰기 진행 중] (참여 인원: ${candidates.length}/5명)`;
-        }
+        const baseText = isVoteMode
+            ? `🗳️ [제 ${targetWritingCh}화 후보작 투표 진행 중] (${currentParticipants}/${maxSlots}명)`
+            : `✍️ [제 ${targetWritingCh}화 이어쓰기 진행 중] (${currentParticipants}/${maxSlots}명)`;
+        phaseNotice.dataset.baseText = baseText;
+        phaseNotice.innerText = `${baseText} · ⏳ ${formatSecondsCountdown(getRelayDeadlineTimestamp(targetRelay))}`;
     }
 
     const storyBodyContainer = document.getElementById('integratedStoryBody');
@@ -3748,7 +4093,7 @@ async function adminDeleteContent(contentId, type) {
         if (candidates.length > 0) {
             const headingText = isVoteMode
                 ? `🗳️ 제 ${targetWritingCh}화 후보작 목록 (${candidates.length}개)`
-                : `✍️ 현재 집필 경쟁 중인 제 ${targetWritingCh}화 목록 (${candidates.length}/5명)`;
+                : `✍️ 현재 참여 중인 제 ${targetWritingCh}화 목록 (${currentParticipants}/${maxSlots}명)`;
             const headingColor = isVoteMode ? 'var(--warning-orange)' : 'var(--success-green)';
 
             let candHtml = `<div style="font-size:0.82rem; font-weight:700; color:${headingColor}; margin-bottom:8px;">${headingText}</div>`;
@@ -3770,15 +4115,24 @@ async function adminDeleteContent(contentId, type) {
 
     const btnContainer = document.getElementById('integratedButtonContainer');
     const alreadySubmittedByMe = candidates.some(c => c.author === currentUserId);
+    const slotSecuredByMe = hasReservedRelaySlot(targetRelay, targetWritingCh);
+    const inlineEditor = document.getElementById('integratedInlineEditor');
 
     if (isVoteMode) {
         btnContainer.innerHTML = '';
+        if (inlineEditor) inlineEditor.style.display = 'none';
     } else if (alreadySubmittedByMe) {
-        btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--success-green); color:var(--success-green);" disabled>✅ 이미 이 회차 이어쓰기에 참여하셨습니다</button>`;
+        btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--success-green); color:var(--success-green);" disabled>✅ 이미 이 회차 후보작을 제출하셨습니다</button>`;
+        if (inlineEditor) inlineEditor.style.display = 'none';
+    } else if (slotSecuredByMe) {
+        btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--primary-cyan); color:var(--primary-cyan);" onclick="openInlineWriterWithDraft(relayMockList.find(r => r.id === '${targetRelay.id}'), ${targetWritingCh})">✍️ 슬롯 확보 완료 — 이어쓰기 작성 창 열기</button>`;
+        openInlineWriterWithDraft(targetRelay, targetWritingCh);
     } else {
-        btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="openWriterModal('${targetRelay.id}')">✍️ 제 ${targetWritingCh}화 이어쓰기 참여하기 (1.0 ${CURRENCY_UNIT})</button>`;
+        btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="joinRelaySlotWithPayment('${targetRelay.id}')">💳 이어쓰기 참가하기 (1.0 ${CURRENCY_UNIT} · ${currentParticipants}/${maxSlots}명)</button>`;
+        if (inlineEditor) inlineEditor.style.display = 'none';
     }
 
+    startLiveCountdownUpdater(targetRelay.id);
     openModal('integratedRelayModal');
 }
         
@@ -3845,41 +4199,7 @@ async function adminDeleteContent(contentId, type) {
         openModal('candidateReaderModal');
     }
 }
-        // 이어쓰기 제출 시 중복 참여 체크 및 5일 기간 유지 로직
-        function submitRelayContribution(relayId) {
-            const targetRelay = relayMockList.find(r => r.id === relayId);
-            if (!targetRelay) return;
 
-            if (!targetRelay.chapters) targetRelay.chapters = [];
-            const candidates = targetRelay.chapters.filter(c => c.ch > 1);
-
-            // 중복 참여 체크 (이미 이 회차에 참여한 유저인지 검사)
-            const currentUser = "wnalsdud88"; // 예시 유저명 또는 세션 유저
-            const alreadySubmitted = candidates.some(c => c.author === currentUser);
-            if (alreadySubmitted) {
-                alert("⚠️ 이미 이 회차의 이어쓰기에 참여하셨습니다. 중복 참여는 하실 수 없습니다.");
-                return;
-            }
-
-            // 5명 제한 체크
-            if (candidates.length >= 5) {
-                alert("⚠️ 이미 정원(5명)이 모두 마감되었습니다.");
-                return;
-            }
-
-            // 새 후보작 추가 (곧바로 투표로 넘가지 않고 5일간 이어쓰기 목록에 머물도록 phase는 'write' 유지)
-            targetRelay.chapters.push({
-                ch: targetRelay.chapters.length + 1,
-                title: document.getElementById('writerTitleInput').value.trim() || '무제',
-                content: document.getElementById('writerContentInput').value.trim(),
-                author: currentUser,
-                votes: 0
-            });
-
-            alert("✨ 이어쓰기 후보작이 제출되었습니다! (5일간 집필 기간 동안 추가 참여자를 모집합니다)");
-            closeModal('writerModal');
-            handleListCardClick(relayId);
-        }
 
         // 투표하기 버튼 동작 및 득표수 실시간 반영 처리
         function voteForCandidate(relayId, candIndex) {
@@ -4335,14 +4655,14 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
 
     const candidates = targetRelay.chapters.filter(c => Number(c.ch) === targetWritingCh && Number(c.ch) > 1);
 
-    if (candidates.length >= 5) {
+    if (candidates.length >= MAX_RELAY_SLOTS) {
         targetRelay.phase = 'vote';
         targetRelay.voteStartedAt = Date.now();
     } else {
         targetRelay.phase = 'write';
     }
 
-    targetRelay.progress = `${candidates.length}/5 참여중`;
+    targetRelay.progress = `${candidates.length}/${MAX_RELAY_SLOTS} 참여중`;
 
     if (typeof relayDrafts !== 'undefined') {
         relayDrafts = relayDrafts.filter(d => d.relayId !== relayId);
@@ -4357,7 +4677,7 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
     updateWalletDisplay();
 
     alert(savedToServer
-        ? `🎉 결제 완료! 제 ${targetWritingCh}화 이어쓰기 후보작이 등록되었습니다. (현재 참여: ${candidates.length}/5명)`
+        ? `🎉 결제 완료! 제 ${targetWritingCh}화 이어쓰기 후보작이 등록되었습니다. (현재 참여: ${candidates.length}/${MAX_RELAY_SLOTS}명)`
         : `ℹ️ 로컬 화면에만 임시 등록되었습니다. Render 서버 배포 상태를 확인해주세요.`
     );
 
