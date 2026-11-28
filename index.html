@@ -1011,8 +1011,8 @@ div[id$="-card-container"] p {
                     🚨 실시간 신고 및 블라인드 관리 목록
                 </div>
                 <div style="display: flex; gap: 6px; margin-bottom: 10px;" id="adminBlindFilterBar">
-                    <button type="button" class="btn btn-outline" id="btnAdminFilterReported" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0; border-color: var(--danger-red); color: #fca5a5;" onclick="setAdminBlindFilter('reported')">🚨 신고/블라인드</button>
-                    <button type="button" class="btn btn-outline" id="btnAdminFilterBlind" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;" onclick="setAdminBlindFilter('blind')">🚫 블라인드만</button>
+                    <button type="button" class="btn btn-outline" id="btnAdminFilterReported" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0; border-color: var(--danger-red); color: #fca5a5;" onclick="setAdminBlindFilter('reported')">🚨 신고된 글</button>
+                    <button type="button" class="btn btn-outline" id="btnAdminFilterBlind" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;" onclick="setAdminBlindFilter('blind')">🚫 가려진 글</button>
                 </div>
                 <div id="adminReportedContentList" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
@@ -2538,6 +2538,22 @@ async function openAlarmModal() {
         } catch (err) {
             console.warn("⚠️ 서버 알림 조회 실패, 로컬 알림으로 표시합니다:", err);
         }
+        const localNotices = JSON.parse(localStorage.getItem(`deep_blue_notifications_${currentUserId}`) || '[]');
+        if (Array.isArray(localNotices) && localNotices.length > 0) {
+            const existingKeys = new Set((alarmList || []).map(a => `${a.title || ''}||${a.desc || ''}`));
+            localNotices.forEach(n => {
+                const mapped = {
+                    title: n.title || '알림',
+                    desc: n.message || n.desc || '',
+                    createdAt: n.createdAt || Date.now()
+                };
+                const k = `${mapped.title}||${mapped.desc}`;
+                if (!existingKeys.has(k)) {
+                    existingKeys.add(k);
+                    alarmList.unshift(mapped);
+                }
+            });
+        }
     }
 
     renderAlarmList();
@@ -3491,8 +3507,8 @@ function applyBlindToLocalContent(contentId, parentId = null, targetCh = null, s
             openModal('adminDashboardModal');
         }
 
-        // 📋 관리자용 전체 글 목록 및 삭제 관리 렌더링
-        let adminBlindFilterMode = 'reported'; // 기본값: 신고 1회 이상 또는 블라인드 항목만 표시
+        // 📋 관리자용 신고/블라인드 목록 렌더링 (누적 20회 신고 시 자동 블라인드 처리, 수동 삭제 없음)
+        let adminBlindFilterMode = 'reported'; // 기본값: 신고된 글(1회 이상 또는 블라인드), 'blind': 가려진 글(블라인드만)
 
 function setAdminBlindFilter(mode) {
     adminBlindFilterMode = mode === 'blind' ? 'blind' : 'reported';
@@ -3522,14 +3538,97 @@ function buildAdminBlindBadge(item) {
     if (isBlind) {
         return `<span style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; background:rgba(239,68,68,0.22); border:1px solid #ef4444; color:#fca5a5; font-size:0.7rem; font-weight:800;">🚫 블라인드 (${count || 20}회)</span>`;
     }
+    if (count > 0) {
+        return `<span style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:var(--text-sub); font-size:0.7rem; font-weight:700;">신고 ${count}회</span>`;
+    }
     return '';
+}
+
+function openAdminReportedContentModal(relayId, candIdOrCh, creatorId) {
+    if (!subAdminList.includes(currentUserId)) {
+        alert("❌ 접근 권한이 없습니다.");
+        return;
+    }
+
+    closeModal('adminDashboardModal');
+
+    if (creatorId) {
+        const targetCreator = (Array.isArray(creatorMockList) ? creatorMockList : []).find(c => c.id === creatorId);
+        if (!targetCreator) {
+            alert("해당 오리지널 게시글을 찾을 수 없습니다.");
+            return;
+        }
+        const chObj = Array.isArray(targetCreator.chapters) && targetCreator.chapters.length > 0
+            ? targetCreator.chapters[0]
+            : null;
+        const reportCreatorBtn = document.getElementById('btnReportCreatorSingle');
+        if (reportCreatorBtn) {
+            reportCreatorBtn.onclick = function () {
+                triggerReportAction(targetCreator.id, '오리지널 회차', targetCreator.id);
+            };
+        }
+        const blindTag = (Boolean(targetCreator.isBlind) || Number(targetCreator.reportCount || 0) >= 20) ? ' [블라인드됨]' : '';
+        const titleEl = document.getElementById('singleReaderTitle');
+        const bodyEl = document.getElementById('singleReaderBody');
+        if (titleEl) {
+            titleEl.innerText = chObj
+                ? `${targetCreator.title} - 제 ${chObj.ch}화 : ${chObj.title}${blindTag}`
+                : `${targetCreator.title}${blindTag}`;
+        }
+        if (bodyEl) {
+            bodyEl.innerText = chObj ? (chObj.content || '') : (targetCreator.desc || targetCreator.content || '');
+        }
+        openModal('creatorSingleReaderModal');
+        return;
+    }
+
+    if (relayId) {
+        const targetRelay = (Array.isArray(relayMockList) ? relayMockList : []).find(r => r.id === relayId);
+        if (!targetRelay) {
+            alert("해당 릴레이 스토리를 찾을 수 없습니다.");
+            return;
+        }
+
+        const chapters = Array.isArray(targetRelay.chapters) ? targetRelay.chapters : [];
+        const matchedCand = candIdOrCh
+            ? chapters.find(c => Number(c.ch) > 1 && (c.id === candIdOrCh || c._id === candIdOrCh || Number(c.ch) === Number(candIdOrCh)))
+            : null;
+
+        if (matchedCand) {
+            const candList = chapters.filter(c => Number(c.ch) === Number(matchedCand.ch) && Number(c.ch) > 1);
+            const idxInCh = candList.findIndex(c => c === matchedCand);
+            openCandidateDetailReader(relayId, idxInCh >= 0 ? idxInCh : 0, false, true);
+            return;
+        }
+
+        const ch1 = chapters.find(c => Number(c.ch) === 1);
+        const rootBlind = Boolean(targetRelay.isBlind) || Boolean(ch1 && ch1.isBlind) || Number(targetRelay.reportCount || 0) >= 20;
+        const titleEl = document.getElementById('singleReaderTitle');
+        const bodyEl = document.getElementById('singleReaderBody');
+        const reportCreatorBtn = document.getElementById('btnReportCreatorSingle');
+        if (reportCreatorBtn) {
+            reportCreatorBtn.onclick = function () {
+                triggerReportAction(targetRelay.id, '릴레이 1화', targetRelay.id, 1);
+            };
+        }
+        if (titleEl) {
+            titleEl.innerText = `${targetRelay.title} · 1화${rootBlind ? ' [블라인드됨]' : ''}`;
+        }
+        if (bodyEl) {
+            bodyEl.innerText = (ch1 && ch1.content) || targetRelay.content || '';
+        }
+        openModal('creatorSingleReaderModal');
+    }
 }
 
 function renderAdminContentList() {
     const listContainer = document.getElementById('adminReportedContentList');
     if (!listContainer) return;
 
-    let html = `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 신고 1회 이상 또는 블라인드 처리된 항목만 표시됩니다. (20회 이상은 블라인드 배지 표시)</div>`;
+    const isBlindTab = adminBlindFilterMode === 'blind';
+    let html = isBlindTab
+        ? `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 누적 신고 20회 이상으로 블라인드 처리된 가려진 글 목록입니다. 클릭 시 관리자 화면에서 본문을 열람할 수 있습니다.</div>`
+        : `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 신고 1회 이상 접수된 글 목록입니다. 항목을 클릭하면 해당 글 모달로 이동해 본문을 볼 수 있습니다.</div>`;
 
     const relays = Array.isArray(relayMockList) ? relayMockList : [];
     const creators = Array.isArray(creatorMockList) ? creatorMockList : [];
@@ -3542,34 +3641,39 @@ function renderAdminContentList() {
         const rootBlind = Boolean(item.isBlind) || rootCount >= 20;
         relayRows.push({
             id: item.id,
+            relayId: item.id,
+            candKey: '',
+            creatorId: '',
             type: 'relay',
             label: `${item.title} · 1화`,
             meta: item.nation || 'KR',
             reportCount: rootCount,
-            isBlind: rootBlind,
-            onDelete: `adminDeleteContent('${item.id}', 'relay')`
+            isBlind: rootBlind
         });
 
         if (Array.isArray(item.chapters)) {
             item.chapters.filter(c => Number(c.ch) > 1).forEach(ch => {
                 const chCount = Number(ch.reportCount || 0);
                 const chBlind = Boolean(ch.isBlind) || chCount >= 20;
+                const candKey = ch.id || ch._id || String(ch.ch);
                 relayRows.push({
                     id: ch.id || ch._id || `${item.id}_ch${ch.ch}`,
+                    relayId: item.id,
+                    candKey,
+                    creatorId: '',
                     type: 'relay_chapter',
                     label: `${item.title} · ${ch.ch}화 후보`,
                     meta: `작가: ${ch.author || '-'}`,
                     reportCount: chCount,
-                    isBlind: chBlind,
-                    onDelete: `adminDeleteCandidate('${item.id}', ${ch.ch})`
+                    isBlind: chBlind
                 });
             });
         }
     });
 
     const matchesFilter = (count, isBlind) => {
-        if (adminBlindFilterMode === 'blind') return isBlind;
-        return count >= 1 || isBlind;
+        if (isBlindTab) return isBlind;
+        return count >= 1;
     };
 
     const filteredRelayRows = relayRows.filter(row => matchesFilter(row.reportCount, row.isBlind));
@@ -3579,89 +3683,51 @@ function renderAdminContentList() {
         return matchesFilter(count, isBlind);
     });
 
+    const buildRowHtml = (row, titlePrefix, titleText, metaText, badge, isBlindRow, clickHandler) => {
+        const rowStyle = isBlindRow
+            ? 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.55); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem; cursor:pointer;'
+            : 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem; cursor:pointer;';
+
+        const rightStatus = isBlindRow
+            ? `<span style="font-size:0.72rem; font-weight:700; color:#fca5a5; white-space:nowrap;">블라인드됨</span>`
+            : `<span style="font-size:0.72rem; color:var(--primary-cyan); white-space:nowrap;">본문 보기 ➔</span>`;
+
+        return `
+            <div style="${rowStyle}" onclick="${clickHandler}">
+                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:76%;">
+                    <b>${titlePrefix}</b> ${titleText} <span style="color:var(--text-sub); font-size:0.75rem;">(${metaText})</span>${badge}
+                </div>
+                ${rightStatus}
+            </div>
+        `;
+    };
+
     if (filteredRelayRows.length > 0) {
-        html += `<div style="font-weight:700; color:var(--primary-cyan); margin:8px 0 4px 0;">[신고/블라인드 릴레이 항목]</div>`;
+        html += `<div style="font-weight:700; color:var(--primary-cyan); margin:8px 0 4px 0;">[${isBlindTab ? '가려진 릴레이 항목' : '신고된 릴레이 항목'}]</div>`;
         filteredRelayRows.forEach(row => {
             const badge = buildAdminBlindBadge(row);
-            const rowStyle = 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
-            const rightBtn = row.onDelete
-                ? `<button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="${row.onDelete}">삭제</button>`
-                : `<span style="font-size:0.72rem; color:var(--text-sub);">${row.isBlind ? '블라인드됨' : '후보작'}</span>`;
-
-            html += `
-                <div style="${rowStyle}">
-                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:74%;">
-                        <b>[릴레이]</b> ${row.label} <span style="color:var(--text-sub); font-size:0.75rem;">(${row.meta})</span>${badge}
-                    </div>
-                    ${rightBtn}
-                </div>
-            `;
+            const clickHandler = `openAdminReportedContentModal('${row.relayId}', '${row.candKey}', '')`;
+            html += buildRowHtml(row, '[릴레이]', row.label, row.meta, badge, isBlindTab, clickHandler);
         });
     }
 
     if (filteredCreators.length > 0) {
-        html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[신고/블라인드 오리지널 항목]</div>`;
+        html += `<div style="font-weight:700; color:var(--success-green); margin:12px 0 4px 0;">[${isBlindTab ? '가려진 오리지널 항목' : '신고된 오리지널 항목'}]</div>`;
         filteredCreators.forEach(item => {
             const count = Number(item.reportCount || 0);
             const isBlind = Boolean(item.isBlind) || count >= 20;
             const badge = buildAdminBlindBadge(item);
-            const rowStyle = 'display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.45); padding:8px 10px; border-radius:8px; margin-bottom:6px; font-size:0.8rem;';
-
-            html += `
-                <div style="${rowStyle}">
-                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:74%;">
-                        <b>[오리지널]</b> ${item.title} <span style="color:var(--text-sub); font-size:0.75rem;">(작가: ${item.author || item.creatorName || '-'})</span>${badge}
-                    </div>
-                    <button class="btn btn-outline" style="width:auto; margin:0; padding:4px 8px; font-size:0.72rem; border-color:var(--danger-red); color:var(--danger-red);" onclick="adminDeleteContent('${item.id}', 'creator')">삭제</button>
-                </div>
-            `;
+            const authorLabel = `작가: ${item.author || item.creatorName || '-'}`;
+            const clickHandler = `openAdminReportedContentModal('', '', '${item.id}')`;
+            html += buildRowHtml(item, '[오리지널]', item.title, authorLabel, badge, isBlindTab, clickHandler);
         });
     }
 
     if (filteredRelayRows.length === 0 && filteredCreators.length === 0) {
-        html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">${adminBlindFilterMode === 'blind' ? '블라인드 처리된 게시글이 없습니다.' : '신고 접수되거나 블라인드된 게시글이 없습니다.'}</div>`;
+        html += `<div style="text-align:center; color:var(--text-sub); padding:20px;">${isBlindTab ? '가려진(블라인드 처리된) 게시글이 없습니다.' : '신고된 게시글이 없습니다.'}</div>`;
     }
 
     listContainer.innerHTML = html;
-}
-    
- 
-// 🗑️ 관리자 글 삭제 실행 함수
-async function adminDeleteContent(contentId, type) {
-    if (!confirm("⚠️ 정말 이 게시글을 영구 삭제하시겠습니까?")) return;
-
-    try {
-        // 💡 로컬 ID(card_...)인 경우 백엔드 통신 없이 곧바로 프론트엔드에서 삭제 처리
-        if (String(contentId).startsWith('card_') || String(contentId).startsWith('c_')) {
-            throw new Error("Local ID - skip backend API");
-        }
-
-        const baseUrl = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
-            ? BACKEND_URL
-            : 'https://deep-blue-server.onrender.com';
-        await fetch(`${baseUrl}/api/admin/content/${contentId}`, {
-            method: 'DELETE'
-        });
-    } catch (error) {
-        console.warn("⚠️ 로컬 테스트 모드로 즉시 삭제합니다.");
-    }
-
-    if (type === 'relay') {
-        relayMockList = relayMockList.filter(item => item.id !== contentId);
-        localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-        if (typeof renderRelayListContent === 'function') {
-            renderRelayListContent();
-        }
-    } else {
-        creatorMockList = creatorMockList.filter(item => item.id !== contentId);
-        localStorage.setItem('saved_creator_list', JSON.stringify(creatorMockList));
-        if (typeof renderCreatorListViewContent === 'function') {
-            renderCreatorListViewContent();
-        }
-    }
-
-    alert("🗑️ 게시글이 성공적으로 삭제되었습니다.");
-    renderAdminContentList();
 }
 
         function handleBlindAuthorNotification(reportResult, fallbackCreatorName = '', fallbackTitle = '') {
@@ -3677,19 +3743,32 @@ async function adminDeleteContent(contentId, type) {
     // 1. 작성자 계정 전용 알림함에 누적 저장
     const storageKey = `deep_blue_notifications_${authorId}`;
     const existingNotices = JSON.parse(localStorage.getItem(storageKey)) || [];
-    existingNotices.unshift({
+    const noticeItem = {
         id: `blind_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         type: 'blind',
-        title: fallbackTitle || '게시글 블라인드 안내',
+        title: fallbackTitle ? `블라인드 안내 · ${fallbackTitle}` : '게시글 블라인드 안내',
         message: noticeText,
         createdAt: Date.now(),
         read: false
-    });
+    };
+    existingNotices.unshift(noticeItem);
     localStorage.setItem(storageKey, JSON.stringify(existingNotices));
 
-    // 2. 현재 접속 중인 유저가 작성자 본인인 경우 즉시 알림 표시
+    // 2. 현재 접속 중인 유저가 작성자 본인인 경우 알림 피드 및 팝업 반영
     const activeUser = typeof currentUserId !== 'undefined' ? currentUserId : '';
     if (activeUser && activeUser === authorId) {
+        if (typeof alarmList !== 'undefined' && Array.isArray(alarmList)) {
+            alarmList.unshift({
+                title: noticeItem.title,
+                desc: noticeText,
+                createdAt: noticeItem.createdAt
+            });
+            if (typeof renderAlarmList === 'function') {
+                renderAlarmList();
+            }
+        }
+        const alarmBtn = document.querySelector('.alarm-btn-drawer');
+        if (alarmBtn) alarmBtn.classList.add('has-unread');
         alert(`🚫 ${noticeText}`);
     }
 }
@@ -4192,17 +4271,18 @@ async function adminDeleteContent(contentId, type) {
     openModal('integratedRelayModal');
 }
         
-        function openCandidateDetailReader(relayId, candIndex, fromVoteModal = false) {
+        function openCandidateDetailReader(relayId, candIndex, fromVoteModal = false, includeBlindedForAdmin = false) {
     const targetRelay = relayMockList.find(r => r.id === relayId);
     if (!targetRelay || !Array.isArray(targetRelay.chapters)) return;
 
+    const allowBlinded = Boolean(includeBlindedForAdmin && Array.isArray(subAdminList) && subAdminList.includes(currentUserId));
     const activeCh = (typeof getRelayActiveChapter === 'function')
         ? getRelayActiveChapter(targetRelay)
         : 2;
-    const activeCandidates = targetRelay.chapters.filter(c => Number(c.ch) === activeCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
+    const activeCandidates = targetRelay.chapters.filter(c => Number(c.ch) === activeCh && Number(c.ch) > 1 && (allowBlinded || !isCandidateBlinded(c)));
     const visibleCandidates = activeCandidates.length > 0
         ? activeCandidates
-        : targetRelay.chapters.filter(c => Number(c.ch) > 1 && !isCandidateBlinded(c));
+        : targetRelay.chapters.filter(c => Number(c.ch) > 1 && (allowBlinded || !isCandidateBlinded(c)));
     const cand = visibleCandidates[candIndex];
     if (!cand) {
         alert("해당 후보작을 찾을 수 없거나 블라인드 처리되었습니다.");
