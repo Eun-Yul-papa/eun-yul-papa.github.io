@@ -3591,13 +3591,16 @@ function openAdminReportedContentModal(relayId, candIdOrCh, creatorId) {
 
         const chapters = Array.isArray(targetRelay.chapters) ? targetRelay.chapters : [];
         const matchedCand = candIdOrCh
-            ? chapters.find(c => Number(c.ch) > 1 && (c.id === candIdOrCh || c._id === candIdOrCh || Number(c.ch) === Number(candIdOrCh)))
+            ? chapters.find(c => Number(c.ch) > 1 && (
+                String(c.id || '') === String(candIdOrCh) ||
+                String(c._id || '') === String(candIdOrCh) ||
+                String(c.ch) === String(candIdOrCh)
+            ))
             : null;
 
         if (matchedCand) {
-            const candList = chapters.filter(c => Number(c.ch) === Number(matchedCand.ch) && Number(c.ch) > 1);
-            const idxInCh = candList.findIndex(c => c === matchedCand);
-            openCandidateDetailReader(relayId, idxInCh >= 0 ? idxInCh : 0, false, true);
+            const candKey = matchedCand.id || matchedCand._id || null;
+            openCandidateDetailReader(relayId, 0, false, true, candKey);
             return;
         }
 
@@ -3620,7 +3623,6 @@ function openAdminReportedContentModal(relayId, candIdOrCh, creatorId) {
         openModal('creatorSingleReaderModal');
     }
 }
-
 function renderAdminContentList() {
     const listContainer = document.getElementById('adminReportedContentList');
     if (!listContainer) return;
@@ -3628,7 +3630,7 @@ function renderAdminContentList() {
     const isBlindTab = adminBlindFilterMode === 'blind';
     let html = isBlindTab
         ? `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 누적 신고 20회 이상으로 블라인드 처리된 가려진 글 목록입니다. 클릭 시 관리자 화면에서 본문을 열람할 수 있습니다.</div>`
-        : `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 신고 1회 이상 접수된 글 목록입니다. 항목을 클릭하면 해당 글 모달로 이동해 본문을 볼 수 있습니다.</div>`;
+        : `<div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:8px;">💡 신고 1~19회 접수된 글 목록입니다. 20회 이상 블라인드 시 '가려진 글' 탭으로 이동합니다.</div>`;
 
     const relays = Array.isArray(relayMockList) ? relayMockList : [];
     const creators = Array.isArray(creatorMockList) ? creatorMockList : [];
@@ -3671,9 +3673,10 @@ function renderAdminContentList() {
         }
     });
 
+    // 블라인드(20회 이상) 글은 '가려진 글' 탭에서만 표시하고, '신고된 글' 탭에서는 제외
     const matchesFilter = (count, isBlind) => {
         if (isBlindTab) return isBlind;
-        return count >= 1;
+        return !isBlind && count >= 1;
     };
 
     const filteredRelayRows = relayRows.filter(row => matchesFilter(row.reportCount, row.isBlind));
@@ -3729,7 +3732,7 @@ function renderAdminContentList() {
 
     listContainer.innerHTML = html;
 }
-
+        
         function handleBlindAuthorNotification(reportResult, fallbackCreatorName = '', fallbackTitle = '') {
     if (!reportResult) return;
 
@@ -4271,7 +4274,7 @@ function renderAdminContentList() {
     openModal('integratedRelayModal');
 }
         
-        function openCandidateDetailReader(relayId, candIndex, fromVoteModal = false, includeBlindedForAdmin = false) {
+function openCandidateDetailReader(relayId, candIndex, fromVoteModal = false, includeBlindedForAdmin = false, specificCandId = null) {
     const targetRelay = relayMockList.find(r => r.id === relayId);
     if (!targetRelay || !Array.isArray(targetRelay.chapters)) return;
 
@@ -4279,11 +4282,20 @@ function renderAdminContentList() {
     const activeCh = (typeof getRelayActiveChapter === 'function')
         ? getRelayActiveChapter(targetRelay)
         : 2;
-    const activeCandidates = targetRelay.chapters.filter(c => Number(c.ch) === activeCh && Number(c.ch) > 1 && (allowBlinded || !isCandidateBlinded(c)));
-    const visibleCandidates = activeCandidates.length > 0
-        ? activeCandidates
-        : targetRelay.chapters.filter(c => Number(c.ch) > 1 && (allowBlinded || !isCandidateBlinded(c)));
-    const cand = visibleCandidates[candIndex];
+
+    let cand = null;
+    if (allowBlinded && specificCandId) {
+        cand = targetRelay.chapters.find(c => Number(c.ch) > 1 && (String(c.id || '') === String(specificCandId) || String(c._id || '') === String(specificCandId))) || null;
+    }
+
+    if (!cand) {
+        const activeCandidates = targetRelay.chapters.filter(c => Number(c.ch) === activeCh && Number(c.ch) > 1 && (allowBlinded || !isCandidateBlinded(c)));
+        const visibleCandidates = activeCandidates.length > 0
+            ? activeCandidates
+            : targetRelay.chapters.filter(c => Number(c.ch) > 1 && (allowBlinded || !isCandidateBlinded(c)));
+        cand = visibleCandidates[candIndex];
+    }
+
     if (!cand) {
         alert("해당 후보작을 찾을 수 없거나 블라인드 처리되었습니다.");
         return;
@@ -4302,8 +4314,9 @@ function renderAdminContentList() {
     const voteBtn = document.getElementById('btnVoteThisCandidate');
     const backBtn = document.getElementById('btnBackFromCandidateReader');
 
+    const blindSuffix = isCandidateBlinded(cand) ? ' [관리자 열람 · 블라인드됨]' : '';
     if (titleEl) {
-        titleEl.innerText = `제 ${cand.ch}화 후보 : ${cand.title || '무제'} (작가: ${cand.author})`;
+        titleEl.innerText = `제 ${cand.ch}화 후보 : ${cand.title || '무제'} (작가: ${cand.author})${blindSuffix}`;
     }
     if (bodyEl) {
         bodyEl.innerText = cand.content || '';
@@ -4324,6 +4337,10 @@ function renderAdminContentList() {
     if (backBtn) {
         backBtn.onclick = function () {
             closeModal('candidateReaderModal');
+            if (allowBlinded) {
+                if (typeof openAdminDashboardModal === 'function') openAdminDashboardModal();
+                return;
+            }
             if (fromVoteModal) {
                 if (typeof openReadVoteModal === 'function') {
                     openReadVoteModal(relayId);
@@ -4348,7 +4365,6 @@ function renderAdminContentList() {
         openModal('candidateReaderModal');
     }
 }
-
 
         // 투표하기 버튼 동작 및 득표수 실시간 반영 처리
         function voteForCandidate(relayId, candIndex) {
