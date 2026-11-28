@@ -1670,19 +1670,39 @@ function getNationCode(selectElementId) {
             }
         }
 
-        function submitVoteForCandidate(relayId, candidateCh) {
+        function submitVoteForCandidate(relayId, candidateCh, candidateAuthor = '', candidateIndex = -1) {
             const targetRelay = relayMockList.find(r => r.id === relayId);
             if (!targetRelay) return;
 
+            const activeCh = (typeof getRelayActiveChapter === 'function')
+                ? getRelayActiveChapter(targetRelay)
+                : Number(candidateCh || targetRelay.currentCh || 2);
+
             // 1. 중복 투표 방지 체크
-            const voteCheckKey = `voted_${relayId}_ch_${targetRelay.currentCh}_${currentUserId}`;
+            const voteCheckKey = `voted_${relayId}_ch_${activeCh}_${currentUserId}`;
             if (localStorage.getItem(voteCheckKey)) {
                 alert("⚠️ 이미 이 회차에 투표를 완료하셨습니다! 중복 투표는 하실 수 없습니다.");
                 return;
             }
 
-            // 2. 해당 후보작 득표수 1증가
-            const candidate = targetRelay.chapters.find(c => c.ch === candidateCh);
+            // 2. 해당 후보작 득표수 1증가 (작성자/인덱스 우선 매칭)
+            const chapters = Array.isArray(targetRelay.chapters) ? targetRelay.chapters : [];
+            const activeCandidates = chapters.filter(c => Number(c.ch) === activeCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
+            const fallbackCandidates = activeCandidates.length > 0
+                ? activeCandidates
+                : chapters.filter(c => Number(c.ch) === Number(candidateCh) && Number(c.ch) > 1);
+
+            let candidate = null;
+            if (candidateAuthor) {
+                candidate = fallbackCandidates.find(c => c.author === candidateAuthor) || null;
+            }
+            if (!candidate && candidateIndex >= 0 && fallbackCandidates[candidateIndex]) {
+                candidate = fallbackCandidates[candidateIndex];
+            }
+            if (!candidate) {
+                candidate = fallbackCandidates[0] || chapters.find(c => Number(c.ch) === Number(candidateCh) && Number(c.ch) > 1) || null;
+            }
+
             if (candidate) {
                 candidate.votes = (candidate.votes || 0) + 1;
             }
@@ -1695,9 +1715,9 @@ function getNationCode(selectElementId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
         relayId,
-        ch: candidateCh,
+        ch: activeCh,
         title: candidate ? candidate.title : '',
-        author: candidate ? candidate.author : '',
+        author: candidate ? candidate.author : (candidateAuthor || ''),
         voterId: currentUserId
     })
 }).catch(err => console.warn("⚠️ 투표 DB 동기화 실패:", err));
@@ -1709,7 +1729,7 @@ function getNationCode(selectElementId) {
             }
 
             // 5. 💡 [핵심] 투표 성공 알림창 즉시 띄우기!
-            alert(`🎉 투표가 완료되었습니다! (현재 득표수: ${candidate.votes}표)`);
+            alert(`🎉 투표가 완료되었습니다! (현재 득표수: ${candidate ? candidate.votes : 0}표)`);
 
             // 6. 💡 [핵심] 모달 안의 후보작 목록을 즉시 재렌더링하여 득표수 0표에서 올라간 숫자로 바로 갱신!
             if (typeof renderVoteCandidateList === 'function') {
@@ -4177,7 +4197,13 @@ async function adminDeleteContent(contentId, type) {
     const targetRelay = relayMockList.find(r => r.id === relayId);
     if (!targetRelay || !Array.isArray(targetRelay.chapters)) return;
 
-    const visibleCandidates = targetRelay.chapters.filter(c => Number(c.ch) > 1 && !isCandidateBlinded(c));
+    const activeCh = (typeof getRelayActiveChapter === 'function')
+        ? getRelayActiveChapter(targetRelay)
+        : 2;
+    const activeCandidates = targetRelay.chapters.filter(c => Number(c.ch) === activeCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
+    const visibleCandidates = activeCandidates.length > 0
+        ? activeCandidates
+        : targetRelay.chapters.filter(c => Number(c.ch) > 1 && !isCandidateBlinded(c));
     const cand = visibleCandidates[candIndex];
     if (!cand) {
         alert("해당 후보작을 찾을 수 없거나 블라인드 처리되었습니다.");
@@ -4212,7 +4238,7 @@ async function adminDeleteContent(contentId, type) {
                 alert("⚠️ 현재는 집필 단계입니다. 투표 기간에만 투표할 수 있습니다.");
                 return;
             }
-            submitVoteForCandidate(relayId, cand.ch);
+            submitVoteForCandidate(relayId, cand.ch, cand.author || '', candIndex);
         };
     }
 
@@ -4220,7 +4246,14 @@ async function adminDeleteContent(contentId, type) {
         backBtn.onclick = function () {
             closeModal('candidateReaderModal');
             if (fromVoteModal) {
-                openModal('readVoteModal');
+                if (typeof openReadVoteModal === 'function') {
+                    openReadVoteModal(relayId);
+                } else {
+                    if (typeof renderVoteCandidateList === 'function') {
+                        renderVoteCandidateList(targetRelay);
+                    }
+                    openModal('readVoteModal');
+                }
             } else {
                 handleListCardClick(relayId);
             }
@@ -5232,15 +5265,19 @@ function openChapterCommentModal() {
     if (!container) return;
 
     const chapters = targetRelay.chapters || [];
-    let candidates = chapters.filter(c => c.ch >= targetRelay.currentCh || c.votes !== undefined);
+    const activeCh = (typeof getRelayActiveChapter === 'function')
+        ? getRelayActiveChapter(targetRelay)
+        : 2;
+    let candidates = chapters.filter(c => Number(c.ch) === activeCh && Number(c.ch) > 1 && !isCandidateBlinded(c));
 
-    if (candidates.length === 0 && chapters.length > 0) {
-        candidates.push(chapters[chapters.length - 1]);
+    if (candidates.length === 0) {
+        candidates = chapters.filter(c => Number(c.ch) > 1 && !isCandidateBlinded(c));
     }
 
     let html = '';
     candidates.forEach((cand, idx) => {
-        const chapterNum = cand.ch ?? (targetRelay.currentCh || 2);
+        const chapterNum = cand.ch ?? activeCh;
+        const safeAuthor = String(cand.author || '').replace(/'/g, "\'");
         html += `
             <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-glow); padding: 14px; border-radius: 12px; margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -5252,7 +5289,7 @@ function openChapterCommentModal() {
                     <span style="font-size: 0.78rem; color: var(--primary-cyan);">현재 득표수: ${cand.votes || 0}표</span>
                     <div style="display: flex; gap: 6px;">
                         <button class="btn btn-outline" style="width: auto; margin: 0; padding: 6px 10px; font-size: 0.78rem;" onclick="openCandidateDetailReader('${targetRelay.id}', ${idx}, true)">본문 보기</button>
-                        <button class="btn btn-primary" style="width: auto; margin: 0; padding: 6px 12px; font-size: 0.78rem;" onclick="submitVoteForCandidate('${targetRelay.id}', ${chapterNum})">이 후보에 투표하기 🗳️</button>
+                        <button class="btn btn-primary" style="width: auto; margin: 0; padding: 6px 12px; font-size: 0.78rem;" onclick="submitVoteForCandidate('${targetRelay.id}', ${chapterNum}, '${safeAuthor}', ${idx})">이 후보에 투표하기 🗳️</button>
                     </div>
                 </div>
             </div>
