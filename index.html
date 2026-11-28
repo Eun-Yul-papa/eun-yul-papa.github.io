@@ -2051,9 +2051,33 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
                     progress: item.progress || (found && found.progress) || '0/10 참여중',
                     phase,
                     currentCh: computedCurrentCh,
-                    createdAt: item.createdAt ? new Date(item.createdAt).getTime() : (found ? found.createdAt : Date.now()),
-                    writeStartedAt: found && found.writeStartedAt ? found.writeStartedAt : (item.createdAt ? new Date(item.createdAt).getTime() : Date.now()),
-                    voteStartedAt: found && found.voteStartedAt ? found.voteStartedAt : null,
+                    createdAt: (function() {
+                        const fromServer = item.createdAt ? new Date(item.createdAt).getTime() : NaN;
+                        if (Number.isFinite(fromServer)) return fromServer;
+                        const fromLocal = found && found.createdAt ? new Date(found.createdAt).getTime() : NaN;
+                        if (Number.isFinite(fromLocal)) return fromLocal;
+                        return Date.now();
+                    })(),
+                    writeStartedAt: (function() {
+                        const serverWriteStart = item.writeStartedAt ? new Date(item.writeStartedAt).getTime()
+                            : (item.writeStartAt ? new Date(item.writeStartAt).getTime() : NaN);
+                        if (Number.isFinite(serverWriteStart)) return serverWriteStart;
+                        const localWriteStart = found && found.writeStartedAt ? new Date(found.writeStartedAt).getTime() : NaN;
+                        if (Number.isFinite(localWriteStart)) return localWriteStart;
+                        const fromServer = item.createdAt ? new Date(item.createdAt).getTime() : NaN;
+                        if (Number.isFinite(fromServer)) return fromServer;
+                        const fromLocal = found && found.createdAt ? new Date(found.createdAt).getTime() : NaN;
+                        if (Number.isFinite(fromLocal)) return fromLocal;
+                        return Date.now();
+                    })(),
+                    voteStartedAt: (function() {
+                        const serverVoteStart = item.voteStartedAt ? new Date(item.voteStartedAt).getTime()
+                            : (item.voteStartAt ? new Date(item.voteStartAt).getTime() : NaN);
+                        if (Number.isFinite(serverVoteStart)) return serverVoteStart;
+                        const localVoteStart = found && found.voteStartedAt ? new Date(found.voteStartedAt).getTime() : NaN;
+                        if (Number.isFinite(localVoteStart)) return localVoteStart;
+                        return null;
+                    })(),
                     content: item.content || '',
                     creatorName: item.creatorName || currentUserId || 'Pioneer',
                     isBlind: Boolean(item.isBlind) || itemReportCount >= 20,
@@ -3764,11 +3788,14 @@ async function adminDeleteContent(contentId, type) {
 
         function getRelayDeadlineTimestamp(item) {
             if (!item) return Date.now() + 5 * 24 * 60 * 60 * 1000;
-            if (item.deadlineAt) return new Date(item.deadlineAt).getTime();
+            const parsedDeadline = item.deadlineAt ? new Date(item.deadlineAt).getTime() : NaN;
+            if (Number.isFinite(parsedDeadline)) return parsedDeadline;
             const isVote = item.phase === 'vote';
-            const base = isVote
-                ? (item.voteStartedAt || item.createdAt || Date.now())
-                : (item.writeStartedAt || item.createdAt || Date.now());
+            const rawBase = isVote
+                ? (item.voteStartedAt ?? item.createdAt)
+                : (item.writeStartedAt ?? item.createdAt);
+            const parsedBase = rawBase ? new Date(rawBase).getTime() : NaN;
+            const base = Number.isFinite(parsedBase) ? parsedBase : Date.now();
             const durationMs = isVote ? (3 * 24 * 60 * 60 * 1000) : (5 * 24 * 60 * 60 * 1000);
             return base + durationMs;
         }
@@ -4066,9 +4093,8 @@ async function adminDeleteContent(contentId, type) {
         return;
     }
 
-    if (processRelayLifecycle(targetRelay, Date.now())) {
-        localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
-    }
+    processRelayLifecycle(targetRelay, Date.now());
+    localStorage.setItem('saved_relay_list', JSON.stringify(relayMockList));
 
     const maxSlots = Number(targetRelay.maxSlots) || MAX_RELAY_SLOTS;
     document.getElementById('activeRelayId').value = targetRelay.id;
