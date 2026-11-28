@@ -1420,27 +1420,27 @@ div[id$="-card-container"] p {
             <!-- 3. 하단 액션 버튼 영역 (이어쓰기 참가하기 1.0 PI / 투표 버튼 동적 생성) -->
             <div class="button-group" style="flex-direction: column;" id="integratedButtonContainer"></div>
 
-            <!-- 3-1. 슬롯 확보 후 열리는 작성 창 (임시저장 / 제출하기) -->
-            <div id="integratedInlineEditor" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-glow);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 0.85rem; font-weight: 800; color: var(--success-green);">✍️ 이어쓰기 작성 창 (슬롯 확보됨)</span>
-                    <span id="integratedCountdownText" style="font-size: 0.78rem; color: var(--warning-orange); font-weight: 700;">⏳ 남은 시간: 계산 중...</span>
+            <!-- 3-1. 슬롯 확보 시 바로 열리는 작성 창 -->
+            <div id="integratedInlineEditor" style="display: none; margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(56,189,248,0.22);">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+                    <span style="font-size: 0.84rem; font-weight: 800; color: var(--success-green);">✍️ 이어쓰기 작성</span>
+                    <span id="integratedCountdownText" style="font-size: 0.75rem; color: var(--warning-orange); font-weight: 700; white-space: nowrap;">⏳ 00일 00:00:00</span>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Chapter Subtitle (이번 회차 소제목)</label>
-                    <input type="text" class="form-control" id="inlineWriterSubtitle" placeholder="회차 소제목을 입력하세요...">
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label class="form-label" style="margin-bottom: 4px;">소제목</label>
+                    <input type="text" class="form-control" id="inlineWriterSubtitle" placeholder="이번 회차 소제목을 입력하세요...">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">본문 작성</label>
-                    <textarea class="form-control" id="inlineWriterContent" oninput="handleByteCheckRelay(this, 'inline-writer-byte', 'btn-inline-submit')" placeholder="이어질 이야기를 작성하세요..."></textarea>
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label class="form-label" style="margin-bottom: 4px;">본문</label>
+                    <textarea class="form-control" id="inlineWriterContent" style="min-height: 120px;" oninput="handleByteCheckRelay(this, 'inline-writer-byte', 'btn-inline-submit')" placeholder="이어질 이야기를 작성하세요..."></textarea>
                     <div class="byte-counter-info">
-                        <span class="guide-text">1,500~6,000 바이트 사이로 작성해주세요.</span>
+                        <span class="guide-text">1,500~6,000 Bytes</span>
                         <span class="byte-status" id="inline-writer-byte">0 / 6000 Bytes</span>
                     </div>
                 </div>
-                <div class="button-group">
-                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="saveInlineRelayDraft()">💾 임시저장</button>
-                    <button type="button" class="btn btn-primary" id="btn-inline-submit" style="flex: 1;" disabled onclick="submitInlineRelayDraft()">🚀 제출하기</button>
+                <div class="button-group" style="margin-top: 6px;">
+                    <button type="button" class="btn btn-outline" style="flex: 1; margin-top: 0; padding: 10px;" onclick="saveInlineRelayDraft()">임시저장</button>
+                    <button type="button" class="btn btn-primary" id="btn-inline-submit" style="flex: 1; margin-top: 0; padding: 10px;" disabled onclick="submitInlineRelayDraft()">제출하기</button>
                 </div>
             </div>
             
@@ -3788,7 +3788,7 @@ async function adminDeleteContent(contentId, type) {
                 const text = formatSecondsCountdown(getRelayDeadlineTimestamp(targetRelay));
 
                 const inlineTimerEl = document.getElementById('integratedCountdownText');
-                if (inlineTimerEl) inlineTimerEl.innerText = `⏳ 남은 시간: ${text}`;
+                if (inlineTimerEl) inlineTimerEl.innerText = `⏳ ${text}`;
 
                 const modalTimerEl = document.getElementById('writerModalTimer');
                 if (modalTimerEl) modalTimerEl.innerText = `⏳ 마감: ${text}`;
@@ -4125,7 +4125,7 @@ async function adminDeleteContent(contentId, type) {
         btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--success-green); color:var(--success-green);" disabled>✅ 이미 이 회차 후보작을 제출하셨습니다</button>`;
         if (inlineEditor) inlineEditor.style.display = 'none';
     } else if (slotSecuredByMe) {
-        btnContainer.innerHTML = `<button class="btn btn-outline" style="width:100%; margin:0; border-color:var(--primary-cyan); color:var(--primary-cyan);" onclick="openInlineWriterWithDraft(relayMockList.find(r => r.id === '${targetRelay.id}'), ${targetWritingCh})">✍️ 슬롯 확보 완료 — 이어쓰기 작성 창 열기</button>`;
+        btnContainer.innerHTML = '';
         openInlineWriterWithDraft(targetRelay, targetWritingCh);
     } else {
         btnContainer.innerHTML = `<button class="btn btn-primary" style="width:100%; margin:0;" onclick="joinRelaySlotWithPayment('${targetRelay.id}')">💳 이어쓰기 참가하기 (1.0 ${CURRENCY_UNIT} · ${currentParticipants}/${maxSlots}명)</button>`;
