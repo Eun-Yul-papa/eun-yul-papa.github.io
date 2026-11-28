@@ -378,7 +378,7 @@
             width: 100%; background: rgba(2, 9, 22, 0.7); border: 1px solid var(--border-glow); color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 0.85rem; outline: none; transition: all 0.2s;
         }
         .form-control:focus { border-color: var(--primary-cyan); box-shadow: 0 0 10px rgba(56,189,248,0.3); }
-        textarea.form-control { resize: vertical; min-height: 100px; }
+        textarea.form-control { resize: vertical; min-height: 360px; }
 
         .byte-counter-info { display: flex; justify-content: space-between; font-size: 0.75rem; margin-top: 6px; }
         .guide-text { color: var(--text-sub); }
@@ -1283,8 +1283,8 @@ div[id$="-card-container"] p {
                 <label class="form-label">Chapter 1 Content (첫 화 작성 본문)</label>
                 <textarea class="form-control" id="storyContent" oninput="handleByteCheckRelay(this, 'byte-status-count', 'btn-submit-relay')" placeholder="첫 번째 이야기를 작성하세요..."></textarea>
                 <div class="byte-counter-info">
-                    <span class="guide-text">1,500~6,000 바이트 사이로 작성해주세요.</span>
-                    <span class="byte-status" id="byte-status-count">0 / 6000 Bytes</span>
+                    <span class="guide-text">최소 1,500 Bytes 이상</span>
+                    <span class="byte-status" id="byte-status-count">0 Bytes</span>
                 </div>
             </div>
             <button class="btn btn-primary" id="btn-submit-relay" disabled onclick="createNewRelayCard()">무료로 첫 화 개설하기 (0 PI)</button>
@@ -1338,8 +1338,8 @@ div[id$="-card-container"] p {
                 <label class="form-label">Chapter 1 Content (1화 본문 - 1화 무료 공개)</label>
                 <textarea class="form-control" id="creatorContent" oninput="handleByteCheckFree(this, 'creator-byte-count', 'btn-submit-creator')" placeholder="1화 내용을 입력하세요..."></textarea>
                 <div class="byte-counter-info">
-                    <span class="guide-text">작성 중인 분량:</span>
-                    <span class="byte-status valid" id="creator-byte-count">0 Bytes</span>
+                    <span class="guide-text">최소 1,500 Bytes 이상</span>
+                    <span class="byte-status" id="creator-byte-count">0 Bytes</span>
                 </div>
             </div>
             <button class="btn btn-primary" id="btn-submit-creator" disabled onclick="createNewCreatorCard()">연재 작품 등록하기 (0 PI)</button>
@@ -1373,8 +1373,8 @@ div[id$="-card-container"] p {
             </div>
             <textarea class="form-control" id="writerInputContent" oninput="handleByteCheckRelay(this, 'writer-byte-count', 'btn-submit-write')" placeholder="이어질 이야기를 작성하세요..."></textarea>
             <div class="byte-counter-info">
-                <span class="guide-text">1,500~6,000 바이트 사이로 작성해주세요.</span>
-                <span class="byte-status" id="writer-byte-count">0 / 6000 Bytes</span>
+                <span class="guide-text">최소 1,500 Bytes 이상</span>
+                <span class="byte-status" id="writer-byte-count">0 Bytes</span>
             </div>
             <div style="font-size: 0.75rem; color: var(--text-sub); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 10px; margin-top: 8px; line-height: 1.5;">
                 ℹ️ <b>참여 안내:</b> 투표 동점 시 <b>먼저 등록된 후보작</b>이 우선 채택되며, 누적 <b>신고 20회</b> 도달 시 자동으로 가리기(블라인드) 처리됩니다.
@@ -1432,10 +1432,10 @@ div[id$="-card-container"] p {
                 </div>
                 <div class="form-group" style="margin-bottom: 8px;">
                     <label class="form-label" style="margin-bottom: 4px;">본문</label>
-                    <textarea class="form-control" id="inlineWriterContent" style="min-height: 120px;" oninput="handleByteCheckRelay(this, 'inline-writer-byte', 'btn-inline-submit')" placeholder="이어질 이야기를 작성하세요..."></textarea>
+                    <textarea class="form-control" id="inlineWriterContent" style="min-height: 360px;" oninput="handleByteCheckRelay(this, 'inline-writer-byte', 'btn-inline-submit')" placeholder="이어질 이야기를 작성하세요..."></textarea>
                     <div class="byte-counter-info">
-                        <span class="guide-text">1,500~6,000 Bytes</span>
-                        <span class="byte-status" id="inline-writer-byte">0 / 6000 Bytes</span>
+                        <span class="guide-text">최소 1,500 Bytes 이상</span>
+                        <span class="byte-status" id="inline-writer-byte">0 Bytes</span>
                     </div>
                 </div>
                 <div class="button-group" style="margin-top: 6px;">
@@ -1507,11 +1507,11 @@ div[id$="-card-container"] p {
         </div>
 
         <div class="form-group">
-            <label class="form-label">Content (회차 본문 - 글자 수 제한 무제한)</label>
-            <textarea class="form-control" id="inputCreatorContinueContent" style="min-height: 180px;" placeholder="자유롭게 이야기를 이어서 작성하세요..." oninput="handleByteCheckFree(this, 'creator-continue-byte', 'btn-submit-creator-continue')"></textarea>
+            <label class="form-label">Content (회차 본문 - 최소 1,500 Bytes 이상)</label>
+            <textarea class="form-control" id="inputCreatorContinueContent" style="min-height: 360px;" placeholder="자유롭게 이야기를 이어서 작성하세요..." oninput="handleByteCheckFree(this, 'creator-continue-byte', 'btn-submit-creator-continue')"></textarea>
             <div class="byte-counter-info">
-                <span class="guide-text">작성 중인 분량 (무제한):</span>
-                <span class="byte-status valid" id="creator-continue-byte">0 Bytes</span>
+                <span class="guide-text">최소 1,500 Bytes 이상</span>
+                <span class="byte-status" id="creator-continue-byte">0 Bytes</span>
             </div>
             <div style="font-size: 0.75rem; color: var(--text-sub); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 10px; margin-top: 8px; line-height: 1.5;">
                 ℹ️ <b>연재 안내:</b> 누적 <b>신고 20회</b> 도달 시 자동으로 가리기(블라인드) 처리됩니다.
@@ -1546,7 +1546,6 @@ div[id$="-card-container"] p {
 
         
         const MIN_BYTES = 1500;
-        const MAX_BYTES = 6000;
         const CURRENCY_UNIT = "Pi";
         const PI_SANDBOX_MODE = true; // 메인넷 전환 시 false로 변경
         const BACKEND_URL = "https://deep-blue-server.onrender.com";
@@ -2130,6 +2129,10 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
             const title = document.getElementById('inputCreatorTitle').value.trim() || "무제 작품";
             const subtitle = document.getElementById('inputCreatorSubtitle').value.trim() || "제 1화";
             const content = document.getElementById('creatorContent').value;
+            if (getByteLength(content) < MIN_BYTES) {
+                alert(`본문은 최소 ${MIN_BYTES.toLocaleString()} Bytes 이상 작성해주세요.`);
+                return;
+            }
             const format = document.getElementById('selectCreatorFormat').value;
             const lengthType = document.getElementById('selectCreatorLength').value;
             const nationCode = getNationCode('userLangSelect');
@@ -2177,6 +2180,7 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
             document.getElementById('inputCreatorTitle').value = '';
             document.getElementById('inputCreatorSubtitle').value = '';
             document.getElementById('creatorContent').value = '';
+            handleByteCheckFree(document.getElementById('creatorContent'), 'creator-byte-count', 'btn-submit-creator');
             
             alert(`🎉 '${title}' 오리지널 시리즈가 연재 등록되었습니다!`);
             renderCreatorListViewContent();
@@ -2215,6 +2219,10 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
 
     if (!title || !content) {
         alert('제목과 본문을 모두 입력해주세요.');
+        return;
+    }
+    if (getByteLength(content) < MIN_BYTES) {
+        alert(`본문은 최소 ${MIN_BYTES.toLocaleString()} Bytes 이상 작성해주세요.`);
         return;
     }
 
@@ -2289,7 +2297,10 @@ function startRelayCountdown(elementId, deadlineAt, onExpire) {
 
     if (titleInput) titleInput.value = '';
     if (subtitleInput) subtitleInput.value = '';
-    if (contentInput) contentInput.value = '';
+    if (contentInput) {
+        contentInput.value = '';
+        handleByteCheckRelay(contentInput, 'byte-status-count', 'btn-submit-relay');
+    }
     localStorage.removeItem(`relay_draft_${newRelayId}`);
 
     closeModal('createModal');
@@ -4814,6 +4825,10 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
                 alert("본문 내용을 입력해주세요.");
                 return;
             }
+            if (getByteLength(content) < MIN_BYTES) {
+                alert(`본문은 최소 ${MIN_BYTES.toLocaleString()} Bytes 이상 작성해주세요.`);
+                return;
+            }
 
             if (targetCreator) {
                 if (!targetCreator.chapters) {
@@ -4839,6 +4854,7 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
 
             document.getElementById('inputCreatorContinueSubtitle').value = '';
             document.getElementById('inputCreatorContinueContent').value = '';
+            handleByteCheckFree(document.getElementById('inputCreatorContinueContent'), 'creator-continue-byte', 'btn-submit-creator-continue');
             document.getElementById('checkFinalChapterCreator').checked = false;
             
             if (isFinal) {
@@ -4852,19 +4868,33 @@ async function executeActualWriterSubmission(relayId, subtitle, content) {
             openCreatorReadModal(activeCreatorTitle, targetCreator ? targetCreator.currentCh : 2, currentUserId);
         }
 
+        function updateByteCounterUI(textareaElem, statusId, btnId) {
+            const bytes = getByteLength(textareaElem ? textareaElem.value : '');
+            const statusEl = document.getElementById(statusId);
+            const btnEl = document.getElementById(btnId);
+            const isValid = bytes >= MIN_BYTES;
+            if (statusEl) {
+                statusEl.innerText = bytes + ' Bytes';
+                statusEl.classList.toggle('valid', isValid);
+            }
+            if (btnEl) {
+                btnEl.disabled = !isValid;
+            }
+        }
+
         function handleByteCheckRelay(textareaElem, statusId, btnId) {
-            const bytes = getByteLength(textareaElem.value);
-            document.getElementById(statusId).innerText = bytes + ' / 6000 Bytes';
-            document.getElementById(btnId).disabled = !(bytes >= MIN_BYTES && bytes <= MAX_BYTES);
+            updateByteCounterUI(textareaElem, statusId, btnId);
         }
 
         function handleByteCheckFree(textareaElem, statusId, btnId) {
-            const bytes = getByteLength(textareaElem.value);
-            document.getElementById(statusId).innerText = bytes + ' Bytes';
-            document.getElementById(btnId).disabled = (bytes === 0);
+            updateByteCounterUI(textareaElem, statusId, btnId);
         }
 
         function getByteLength(str) {
+            if (!str) return 0;
+            if (typeof TextEncoder !== 'undefined') {
+                return new TextEncoder().encode(str).length;
+            }
             let bytes = 0;
             for (let i = 0; i < str.length; i++) {
                 const code = str.charCodeAt(i);
